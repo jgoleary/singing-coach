@@ -1,3 +1,63 @@
+import { useState, useEffect } from "react";
+import { useStore } from "./store/useStore";
+import FileLoader from "./components/FileLoader";
+import ScoreViewer from "./components/ScoreViewer";
+import PitchGraph from "./components/PitchGraph";
+import PassageSelector from "./components/PassageSelector";
+import TransportControls from "./components/TransportControls";
+import RecordButton from "./components/RecordButton";
+import FeedbackPanel from "./components/FeedbackPanel";
+
+type LeftTab = "score" | "pitch";
+
 export default function App() {
-  return <div className="p-4 text-white">Singing Coach</div>;
+  const [activeTab, setActiveTab] = useState<LeftTab>("score");
+  const pitchData = useStore((s) => s.pitchData);
+
+  useEffect(() => {
+    if (pitchData) setActiveTab("pitch");
+  }, [pitchData]);
+
+  return (
+    <div className="h-screen flex flex-col bg-[#0f0f1a] text-gray-200 overflow-hidden">
+      <div className="border-b border-[#2a2a4e] px-4 py-2 flex-shrink-0">
+        <FileLoader />
+      </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col border-r border-[#2a2a4e] overflow-hidden">
+          <div className="flex border-b border-[#2a2a4e] flex-shrink-0">
+            <button
+              className={`px-5 py-2 text-sm ${
+                activeTab === "score"
+                  ? "text-blue-300 border-b-2 border-blue-400 bg-[#1a1a2e]"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+              onClick={() => setActiveTab("score")}
+            >
+              Score
+            </button>
+            <button
+              className={`px-5 py-2 text-sm ${
+                activeTab === "pitch"
+                  ? "text-blue-300 border-b-2 border-blue-400 bg-[#1a1a2e]"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+              onClick={() => setActiveTab("pitch")}
+            >
+              Pitch Graph
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto">
+            {activeTab === "score" ? <ScoreViewer /> : <PitchGraph />}
+          </div>
+        </div>
+        <div className="w-56 flex flex-col overflow-y-auto bg-[#12121f]">
+          <PassageSelector />
+          <TransportControls />
+          <RecordButton />
+          <FeedbackPanel />
+        </div>
+      </div>
+    </div>
+  );
 }
