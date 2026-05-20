@@ -1,5 +1,6 @@
 # Python
 backend/venv/
+backend/venv312/
 backend/__pycache__/
 backend/tests/__pycache__/
 __pycache__/
@@ -8,8 +9,12 @@ __pycache__/
 .pytest_cache/
 
 # Node
+node_modules/
 frontend/node_modules/
 frontend/dist/
+
+# Brainstorm / superpowers
+.superpowers/
 
 # Misc
 .DS_Store
