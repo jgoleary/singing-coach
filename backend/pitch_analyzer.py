@@ -24,11 +24,12 @@ def analyze_audio(audio: np.ndarray, sr: int) -> dict:
 
 
 def analyze_bytes(audio_bytes: bytes) -> dict:
-    # Try soundfile directly (works for WAV, FLAC, AIFF)
-    fd, path = tempfile.mkstemp(suffix=".wav")
+    fd, path = tempfile.mkstemp(suffix=".bin")
     try:
-        os.write(fd, audio_bytes)
-        os.close(fd)
+        try:
+            os.write(fd, audio_bytes)
+        finally:
+            os.close(fd)
         try:
             audio, sr = sf.read(path, dtype="int16")
         except Exception:
@@ -48,5 +49,5 @@ def analyze_bytes(audio_bytes: bytes) -> dict:
         os.unlink(path)
 
     if audio.ndim > 1:
-        audio = audio.mean(axis=1).astype(np.int16)  # stereo → mono by averaging
+        audio = audio.mean(axis=1).astype(np.int16)
     return analyze_audio(audio, sr)
