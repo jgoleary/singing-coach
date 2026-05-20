@@ -1,3 +1,5 @@
+import os
+import subprocess
 import tempfile
 import numpy as np
 import soundfile as sf
@@ -22,10 +24,29 @@ def analyze_audio(audio: np.ndarray, sr: int) -> dict:
 
 
 def analyze_bytes(audio_bytes: bytes) -> dict:
-    with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-        tmp.write(audio_bytes)
-        tmp.flush()
-        audio, sr = sf.read(tmp.name, dtype="int16")
+    # Try soundfile directly (works for WAV, FLAC, AIFF)
+    fd, path = tempfile.mkstemp(suffix=".wav")
+    try:
+        os.write(fd, audio_bytes)
+        os.close(fd)
+        try:
+            audio, sr = sf.read(path, dtype="int16")
+        except Exception:
+            # Fallback: convert via ffmpeg (handles WebM/Opus from Chrome)
+            fd2, wav_path = tempfile.mkstemp(suffix=".wav")
+            os.close(fd2)
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-y", "-i", path, "-ar", "16000", "-ac", "1", "-f", "wav", wav_path],
+                    check=True,
+                    capture_output=True,
+                )
+                audio, sr = sf.read(wav_path, dtype="int16")
+            finally:
+                os.unlink(wav_path)
+    finally:
+        os.unlink(path)
+
     if audio.ndim > 1:
-        audio = audio[:, 0]  # mono
+        audio = audio.mean(axis=1).astype(np.int16)  # stereo → mono by averaging
     return analyze_audio(audio, sr)
