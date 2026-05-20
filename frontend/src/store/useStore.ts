@@ -15,7 +15,7 @@ interface AppState {
   pitchData: PitchFrame[] | null;
   targetNotes: TargetNote[] | null;
 
-  setParsedScore: (score: ParsedScore) => void;
+  setParsedScore: (score: ParsedScore | null) => void;
   setVoicePartId: (id: string | null) => void;
   setAccompanimentPartId: (id: string | null) => void;
   setPassage: (passage: Passage | null) => void;
