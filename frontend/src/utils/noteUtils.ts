@@ -27,7 +27,7 @@ export function beatsToSeconds(
   tempo: number,
   timeSignature: TimeSignature
 ): number {
-  const secondsPerBeat = 60 / tempo;
+  const secondsPerBeat = (60 / tempo) * (4 / timeSignature.beatType);
   const beatsPerMeasure = timeSignature.beats;
   const absoluteBeat = (measure - 1) * beatsPerMeasure + (beat - 1);
   return absoluteBeat * secondsPerBeat;

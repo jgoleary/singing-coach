@@ -1,6 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { parseScore } from "./musicxml";
 
+const CHORD_XML = `<?xml version="1.0"?>
+<score-partwise>
+  <part-list>
+    <score-part id="P1"><part-name>Piano</part-name></score-part>
+  </part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>4</divisions>
+        <time><beats>4</beats><beat-type>4</beat-type></time>
+      </attributes>
+      <note>
+        <pitch><step>C</step><octave>4</octave></pitch>
+        <duration>4</duration>
+      </note>
+      <note>
+        <chord/>
+        <pitch><step>E</step><octave>4</octave></pitch>
+        <duration>4</duration>
+      </note>
+      <note>
+        <pitch><step>G</step><octave>4</octave></pitch>
+        <duration>4</duration>
+      </note>
+    </measure>
+  </part>
+</score-partwise>`;
+
 const SIMPLE_MXL_XML = `<?xml version="1.0"?>
 <score-partwise>
   <part-list>
@@ -50,5 +78,13 @@ describe("parseScore", () => {
     const notes = score.parts[0].measures[0].notes;
     const rests = notes.filter((n) => n.isRest);
     expect(rests).toHaveLength(1);
+  });
+
+  it("chord notes share beat position with previous note", () => {
+    const score = parseScore(CHORD_XML);
+    const notes = score.parts[0].measures[0].notes;
+    expect(notes[0].beatPosition).toBe(1);  // C4 at beat 1
+    expect(notes[1].beatPosition).toBe(1);  // E4 (chord) also at beat 1
+    expect(notes[2].beatPosition).toBe(2);  // G4 at beat 2
   });
 });

@@ -50,11 +50,18 @@ export function parseScore(xmlString: string): ParsedScore {
         if (beatTypeEl) beatType = parseInt(beatTypeEl.textContent!);
 
         let currentDurationInDivisions = 0;
+        let lastNonChordDivisions = 0;
         const notes: Note[] = Array.from(measureEl.querySelectorAll("note")).map((noteEl) => {
           const isRest = !!noteEl.querySelector("rest");
+          const isChord = !!noteEl.querySelector("chord");
           const duration = parseInt(noteEl.querySelector("duration")?.textContent ?? "1");
-          const beatPosition = 1 + currentDurationInDivisions / divisions;
-          currentDurationInDivisions += duration;
+          const beatPosition = isChord
+            ? 1 + lastNonChordDivisions / divisions
+            : 1 + currentDurationInDivisions / divisions;
+          if (!isChord) {
+            lastNonChordDivisions = currentDurationInDivisions;
+            currentDurationInDivisions += duration;
+          }
 
           const pitchEl = noteEl.querySelector("pitch");
           const pitch = pitchEl

@@ -39,4 +39,15 @@ describe("beatsToSeconds", () => {
     // Measure 2 starts at beat 4 offset = 2.0s
     expect(beatsToSeconds(2, 1, 120, { beats: 4, beatType: 4 })).toBeCloseTo(2.0, 5);
   });
+
+  it("converts beat 1 of measure 1 to 0 seconds at 120bpm 6/8", () => {
+    // 6/8 at 120 BPM: beatType=8, so secondsPerBeat = (60/120) * (4/8) = 0.25s
+    // Beat 1 of measure 1 = absoluteBeat 0 → 0 seconds
+    expect(beatsToSeconds(1, 1, 120, { beats: 6, beatType: 8 })).toBeCloseTo(0, 5);
+  });
+
+  it("converts beat 2 of measure 1 to 0.25 seconds at 120bpm 6/8", () => {
+    // Beat 2 = absoluteBeat 1 * 0.25s = 0.25s
+    expect(beatsToSeconds(1, 2, 120, { beats: 6, beatType: 8 })).toBeCloseTo(0.25, 5);
+  });
 });
