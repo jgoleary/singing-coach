@@ -6,10 +6,10 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
-    allow_methods=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
 @app.get("/health")
-def health():
+async def health():
     return {"status": "ok"}
