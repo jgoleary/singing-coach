@@ -21,7 +21,7 @@ export default function RecordButton() {
     }
     const allMeasures = score.parts[0]?.measures ?? [];
     const startSec = beatsToSeconds(passage.startMeasure, passage.startBeat, score.tempo, allMeasures[0]);
-    const endSec = beatsToSeconds(passage.endMeasure, passage.endBeat, score.tempo, allMeasures.at(-1)!);
+    const endSec = beatsToSeconds(passage.endMeasure, passage.endBeat + 1, score.tempo, allMeasures.at(-1)!);
     return (endSec - startSec) * 1000;
   }
 

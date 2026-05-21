@@ -16,7 +16,7 @@ export function usePitchAnalysis() {
       ? beatsToSeconds(p.startMeasure, p.startBeat, score.tempo, allMeasures[0])
       : 0;
     const passageEnd = p
-      ? beatsToSeconds(p.endMeasure, p.endBeat, score.tempo, allMeasures.at(-1)!)
+      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, score.tempo, allMeasures.at(-1)!)
       : Infinity;
 
     const targets: TargetNote[] = [];

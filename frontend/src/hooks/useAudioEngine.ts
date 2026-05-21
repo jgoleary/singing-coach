@@ -101,7 +101,7 @@ export function useAudioEngine() {
       ? beatsToSeconds(p.startMeasure, p.startBeat, score.tempo, allMeasures[0])
       : 0;
     const end = p
-      ? beatsToSeconds(p.endMeasure, p.endBeat, score.tempo, lastMeasure)
+      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, score.tempo, lastMeasure)
       : beatsToSeconds(lastMeasure.number, lastMeasure.beats + 1, score.tempo, lastMeasure);
     return { start, end, duration: end - start };
   }, []);
