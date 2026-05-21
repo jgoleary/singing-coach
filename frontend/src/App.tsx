@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { useStore } from "./store/useStore";
-import FileLoader from "./components/FileLoader";
+import FileLoader, { loadScoreFromStorage } from "./components/FileLoader";
 import ScoreViewer from "./components/ScoreViewer";
 import PitchGraph from "./components/PitchGraph";
 import PassageSelector from "./components/PassageSelector";
 import TransportControls from "./components/TransportControls";
 import RecordButton from "./components/RecordButton";
 import FeedbackPanel from "./components/FeedbackPanel";
+import { parseScore } from "./utils/musicxml";
 
 type LeftTab = "score" | "pitch";
 
@@ -14,6 +15,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<LeftTab>("score");
   const pitchData = useStore((s) => s.pitchData);
   const analysisStatus = useStore((s) => s.analysisStatus);
+
+  // Restore last score on mount
+  useEffect(() => {
+    const saved = loadScoreFromStorage();
+    if (!saved) return;
+    try {
+      const score = parseScore(saved.xml);
+      window.__lastLoadedXml = saved.xml;
+      useStore.getState().setParsedScore(score);
+      useStore.getState().setVoicePartId(saved.voicePartId);
+      useStore.getState().setAccompanimentPartId(saved.accompanimentPartId);
+    } catch { /* malformed stored XML — ignore */ }
+  }, []);
 
   useEffect(() => {
     if (!pitchData && analysisStatus !== "analyzing" && analysisStatus !== "error") return;

@@ -3,6 +3,21 @@ import { useStore } from "../store/useStore";
 import { loadFile, parseScore } from "../utils/musicxml";
 import type { Part } from "../types";
 
+const STORAGE_KEY = "singing-coach:score";
+
+export function saveScoreToStorage(xml: string, fileName: string, voicePartId: string | null, accompanimentPartId: string | null) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ xml, fileName, voicePartId, accompanimentPartId }));
+  } catch { /* storage full — ignore */ }
+}
+
+export function loadScoreFromStorage(): { xml: string; fileName: string; voicePartId: string | null; accompanimentPartId: string | null } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 declare global {
   interface Window {
     __lastLoadedXml?: string;
@@ -22,12 +37,28 @@ export default function FileLoader() {
     const score = parseScore(xml);
     const defaultVoice = findDefaultVoicePart(score.parts);
     const defaultAccompaniment = findDefaultAccompanimentPart(score.parts, defaultVoice?.id);
+    const voiceId = defaultVoice?.id ?? null;
+    const accompId = defaultAccompaniment?.id ?? null;
     setParsedScore(score);
-    setVoicePartId(defaultVoice?.id ?? null);
-    setAccompanimentPartId(defaultAccompaniment?.id ?? null);
+    setVoicePartId(voiceId);
+    setAccompanimentPartId(accompId);
+    saveScoreToStorage(xml, file.name, voiceId, accompId);
+  }
+
+  function handleVoiceChange(id: string | null) {
+    setVoicePartId(id);
+    const xml = window.__lastLoadedXml;
+    if (xml) saveScoreToStorage(xml, "", id, useStore.getState().accompanimentPartId);
+  }
+
+  function handleAccompChange(id: string | null) {
+    setAccompanimentPartId(id);
+    const xml = window.__lastLoadedXml;
+    if (xml) saveScoreToStorage(xml, "", useStore.getState().voicePartId, id);
   }
 
   const parts = parsedScore?.parts ?? [];
+  const storedFileName = loadScoreFromStorage()?.fileName;
 
   return (
     <div className="flex items-center gap-4 flex-wrap">
@@ -35,8 +66,14 @@ export default function FileLoader() {
         className="px-3 py-1 bg-[#1e3a5f] text-blue-300 rounded text-sm hover:bg-[#2a4a6f]"
         onClick={() => inputRef.current?.click()}
       >
-        Load File
+        {parsedScore ? "Change File" : "Load File"}
       </button>
+      {!parsedScore && storedFileName && (
+        <span className="text-xs text-gray-500 italic">Last: {storedFileName}</span>
+      )}
+      {parsedScore && storedFileName && (
+        <span className="text-xs text-gray-500 truncate max-w-[200px]">{storedFileName}</span>
+      )}
       <input
         ref={inputRef}
         type="file"
@@ -55,7 +92,7 @@ export default function FileLoader() {
             <select
               className="ml-1 bg-[#1a1a2e] text-gray-200 rounded px-1 py-0.5 text-xs border border-[#2a2a4e]"
               value={voicePartId ?? ""}
-              onChange={(e) => setVoicePartId(e.target.value || null)}
+              onChange={(e) => handleVoiceChange(e.target.value || null)}
             >
               <option value="">— none —</option>
               {parts.map((p) => (
@@ -68,7 +105,7 @@ export default function FileLoader() {
             <select
               className="ml-1 bg-[#1a1a2e] text-gray-200 rounded px-1 py-0.5 text-xs border border-[#2a2a4e]"
               value={accompanimentPartId ?? ""}
-              onChange={(e) => setAccompanimentPartId(e.target.value || null)}
+              onChange={(e) => handleAccompChange(e.target.value || null)}
             >
               <option value="">— none —</option>
               {parts.map((p) => (
