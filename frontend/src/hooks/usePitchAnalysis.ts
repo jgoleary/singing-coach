@@ -49,7 +49,7 @@ export function usePitchAnalysis() {
     form.append("audio", blob, "recording.webm");
 
     try {
-      const res = await fetch("http://localhost:8000/analyze-pitch", {
+      const res = await fetch("http://localhost:8080/analyze-pitch", {
         method: "POST",
         body: form,
       });
