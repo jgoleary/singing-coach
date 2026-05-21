@@ -1,7 +1,6 @@
 import io
 import os
 import struct
-import subprocess
 import tempfile
 import wave
 
@@ -62,33 +61,29 @@ def test_analyze_bytes_with_wav():
     assert result["duration"] > 0
 
 
-def has_ffmpeg():
-    try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-        return True
-    except (FileNotFoundError, subprocess.CalledProcessError):
-        return False
+def make_webm_bytes_with_av(freq_hz: float = 440.0, duration_s: float = 1.0, sr: int = 16000) -> bytes:
+    import av as _av
+    num_samples = int(sr * duration_s)
+    t = np.linspace(0, duration_s, num_samples, endpoint=False)
+    audio_f32 = np.sin(2 * np.pi * freq_hz * t).astype(np.float32)
+
+    buf = io.BytesIO()
+    container = _av.open(buf, mode="w", format="webm")
+    stream = container.add_stream("libopus", rate=sr)
+    stream.layout = "mono"
+    frame = _av.AudioFrame.from_ndarray(audio_f32[np.newaxis, :], format="fltp", layout="mono")
+    frame.sample_rate = sr
+    for packet in stream.encode(frame):
+        container.mux(packet)
+    for packet in stream.encode(None):
+        container.mux(packet)
+    container.close()
+    return buf.getvalue()
 
 
-@pytest.mark.skipif(not has_ffmpeg(), reason="ffmpeg not installed")
 def test_analyze_bytes_with_webm():
-    # Create a WAV then convert to WebM with ffmpeg to simulate Chrome MediaRecorder output
-    wav_bytes = make_wav_bytes_for_test(440.0, 1.0)
-    fd, wav_path = tempfile.mkstemp(suffix=".wav")
-    fd2, webm_path = tempfile.mkstemp(suffix=".webm")
-    try:
-        os.write(fd, wav_bytes)
-        os.close(fd)
-        os.close(fd2)
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", wav_path, "-c:a", "libopus", webm_path],
-            check=True, capture_output=True
-        )
-        with open(webm_path, "rb") as f:
-            webm_bytes = f.read()
-        result = analyze_bytes(webm_bytes)
-        assert "frames" in result
-        assert len(result["frames"]) > 0
-    finally:
-        os.unlink(wav_path)
-        os.unlink(webm_path)
+    webm_bytes = make_webm_bytes_with_av(440.0, 1.0)
+    result = analyze_bytes(webm_bytes)
+    assert "frames" in result
+    assert len(result["frames"]) > 0
+    assert result["duration"] > 0
