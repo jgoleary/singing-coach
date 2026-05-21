@@ -4,6 +4,17 @@ import { useMicRecorder } from "../hooks/useMicRecorder";
 import { usePitchAnalysis } from "../hooks/usePitchAnalysis";
 import { beatsToSeconds } from "../utils/noteUtils";
 
+function IconHeadphones() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z" />
+      <path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+    </svg>
+  );
+}
+
 export default function RecordButton() {
   const { parsedScore, passage, isRecording } = useStore();
   const { play, stop: stopPlayback } = useAudioEngine();
@@ -46,19 +57,45 @@ export default function RecordButton() {
   if (!parsedScore) return null;
 
   return (
-    <div className="p-3 border-b border-[#2a2a4e]">
-      <div className="text-[10px] text-gray-500 uppercase mb-2">Record</div>
+    <div style={{ padding: "16px 16px 14px", borderBottom: "1px solid var(--sidebar-line-soft)" }}>
+      {/* Section title */}
+      <div style={{
+        fontSize: 10, fontWeight: 500, textTransform: "uppercase",
+        letterSpacing: "0.12em", color: "var(--sidebar-ink-3)", marginBottom: 12,
+      }}>Record</div>
+
+      {/* Record button */}
       <button
+        type="button"
         onClick={handleRecord}
-        className={`w-full text-sm py-1.5 rounded ${
-          isRecording
-            ? "bg-red-900 text-red-300 animate-pulse"
-            : "bg-[#7f1d1d] text-red-300 hover:bg-red-900"
-        }`}
+        style={{
+          width: "100%", padding: 16, borderRadius: 11, cursor: "pointer",
+          background: "var(--danger-soft)", border: "1px solid var(--danger)",
+          color: "var(--danger)", fontSize: 12.5, fontWeight: 500,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+        }}
       >
-        {isRecording ? "⏹ Stop Recording" : "🎤 Record"}
+        {/* Dot indicator */}
+        <div style={{
+          width: 14, height: 14, borderRadius: "50%",
+          background: "var(--danger)",
+          boxShadow: "0 0 0 4px var(--danger-soft)",
+        }}
+          className={isRecording ? "animate-pulse-dot" : ""}
+        />
+        {isRecording ? "Recording… tap to stop" : "Record passage"}
       </button>
-      <div className="mt-1.5 text-[10px] text-red-400">⚠ Use headphones</div>
+
+      {/* Headphones note */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 5,
+        marginTop: 10, fontSize: 10.5, color: "var(--sidebar-ink-3)",
+      }}>
+        <span style={{ color: "var(--sidebar-ink-4)", display: "flex" }}>
+          <IconHeadphones />
+        </span>
+        Headphones required — prevents mic bleed
+      </div>
     </div>
   );
 }

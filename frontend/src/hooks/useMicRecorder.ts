@@ -19,6 +19,8 @@ export function useMicRecorder() {
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
       setLastRecordingBlob(blob);
+      useStore.getState().incrementTakeNumber();
+      useStore.getState().setLastRecordingAt(Date.now());
       Promise.resolve(onStop(blob)).catch((err) => {
         const message = err instanceof Error ? err.message : "Recording analysis failed";
         useStore.getState().setAnalysisError(message);
