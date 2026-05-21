@@ -17,6 +17,8 @@ describe("useStore", () => {
       lastRecordingBlob: null,
       pitchData: null,
       targetNotes: null,
+      analysisStatus: "idle",
+      analysisError: null,
     });
   });
 

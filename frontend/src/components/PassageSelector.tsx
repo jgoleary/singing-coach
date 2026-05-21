@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useStore } from "../store/useStore";
+import { beatsToSeconds } from "../utils/noteUtils";
 
 export default function PassageSelector() {
   const { parsedScore, setPassage } = useStore();
@@ -10,16 +11,28 @@ export default function PassageSelector() {
 
   const lastMeasure = parsedScore?.parts[0]?.measures.at(-1)?.number ?? 1;
   const lastBeats = parsedScore?.parts[0]?.measures.at(-1)?.beats ?? 4;
+  const lastBeatAfterMeasure = lastBeats + 1;
+
+  const isValidPassage = (() => {
+    if (!parsedScore) return false;
+    const firstMeasure = parsedScore.parts[0]?.measures[0];
+    const lastMeasureData = parsedScore.parts[0]?.measures.at(-1);
+    if (!firstMeasure || !lastMeasureData) return false;
+    const start = beatsToSeconds(startMeasure, startBeat, parsedScore.tempo, firstMeasure);
+    const end = beatsToSeconds(endMeasure, endBeat, parsedScore.tempo, lastMeasureData);
+    return Number.isFinite(start) && Number.isFinite(end) && end > start;
+  })();
 
   function handleWholePiece() {
     setStartMeasure(1);
     setStartBeat(1);
     setEndMeasure(lastMeasure);
-    setEndBeat(lastBeats);
-    setPassage({ startMeasure: 1, startBeat: 1, endMeasure: lastMeasure, endBeat: lastBeats });
+    setEndBeat(lastBeatAfterMeasure);
+    setPassage({ startMeasure: 1, startBeat: 1, endMeasure: lastMeasure, endBeat: lastBeatAfterMeasure });
   }
 
   function handleApply() {
+    if (!isValidPassage) return;
     setPassage({ startMeasure, startBeat, endMeasure, endBeat });
   }
 
@@ -66,10 +79,17 @@ export default function PassageSelector() {
         <button onClick={handleWholePiece} className="flex-1 text-[10px] bg-[#1a1a2e] text-gray-400 rounded py-0.5 hover:text-gray-200">
           Whole piece
         </button>
-        <button onClick={handleApply} className="flex-1 text-[10px] bg-[#1e3a5f] text-blue-300 rounded py-0.5 hover:bg-[#2a4a6f]">
+        <button
+          onClick={handleApply}
+          disabled={!isValidPassage}
+          className="flex-1 text-[10px] bg-[#1e3a5f] text-blue-300 rounded py-0.5 hover:bg-[#2a4a6f] disabled:opacity-40 disabled:hover:bg-[#1e3a5f]"
+        >
           Apply
         </button>
       </div>
+      {!isValidPassage && (
+        <div className="mt-1 text-[10px] text-red-400">End must be after start.</div>
+      )}
     </div>
   );
 }

@@ -13,10 +13,12 @@ type LeftTab = "score" | "pitch";
 export default function App() {
   const [activeTab, setActiveTab] = useState<LeftTab>("score");
   const pitchData = useStore((s) => s.pitchData);
+  const analysisStatus = useStore((s) => s.analysisStatus);
 
   useEffect(() => {
-    if (pitchData) setActiveTab("pitch");
-  }, [pitchData]);
+    if (!pitchData && analysisStatus !== "analyzing" && analysisStatus !== "error") return;
+    queueMicrotask(() => setActiveTab("pitch"));
+  }, [analysisStatus, pitchData]);
 
   return (
     <div className="h-screen flex flex-col bg-[#0f0f1a] text-gray-200 overflow-hidden">

@@ -5,16 +5,89 @@ import * as Tone from "tone";
 import Soundfont from "soundfont-player";
 import { useStore } from "../store/useStore";
 import { noteToFrequency, beatsToSeconds } from "../utils/noteUtils";
-import type { Part } from "../types";
+import type { ParsedScore, Part } from "../types";
 
-const AC = new AudioContext();
+type SoundfontInstrument = {
+  play: (note: string | number, when?: number, options?: { duration?: number }) => unknown;
+};
+
+type ScheduledPitch = {
+  frequency: number;
+  midi: number;
+};
+
+type PlayableInstrument = {
+  play: (pitch: ScheduledPitch, time: number, duration: number) => unknown;
+};
+
+type SoundfontPlayer = {
+  instrument: (
+    audioContext: AudioContext,
+    name: string,
+    options: { soundfont: string }
+  ) => Promise<SoundfontInstrument>;
+};
+
+type OsmdCursor = {
+  reset: () => void;
+  show: () => void;
+  next: () => void;
+};
+
+declare global {
+  interface Window {
+    __osmd?: {
+      cursor: OsmdCursor;
+    };
+  }
+}
 
 async function getInstrument(name: string) {
-  return Soundfont.instrument(AC, name as any, { soundfont: "MusyngKite" });
+  const audioContext = Tone.getContext().rawContext as AudioContext;
+  const instrument = await (Soundfont as SoundfontPlayer).instrument(audioContext, name, {
+    soundfont: "MusyngKite",
+  });
+  return {
+    play: (pitch: ScheduledPitch, time: number, duration: number) =>
+      instrument.play(pitch.midi, time, { duration }),
+  };
+}
+
+function getFallbackInstrument(): PlayableInstrument {
+  const synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "sine" },
+    envelope: { attack: 0.01, decay: 0.08, sustain: 0.45, release: 0.2 },
+  }).toDestination();
+
+  return {
+    play: (pitch, time, duration) => synth.triggerAttackRelease(pitch.frequency, duration, time),
+  };
+}
+
+async function getPlayableInstrument(name: string): Promise<PlayableInstrument> {
+  try {
+    return await getInstrument(name);
+  } catch (err) {
+    console.warn(`Falling back to local synth for ${name}`, err);
+    return getFallbackInstrument();
+  }
+}
+
+function pitchToMidi(step: string, octave: number, alter: number): number {
+  const semitonesFromC: Record<string, number> = {
+    C: 0,
+    D: 2,
+    E: 4,
+    F: 5,
+    G: 7,
+    A: 9,
+    B: 11,
+  };
+  return (octave + 1) * 12 + semitonesFromC[step] + alter;
 }
 
 export function useAudioEngine() {
-  const instrumentsRef = useRef<Record<string, any>>({});
+  const instrumentsRef = useRef<Record<string, PlayableInstrument>>({});
 
   const getPassageBounds = useCallback(() => {
     const state = useStore.getState();
@@ -34,7 +107,13 @@ export function useAudioEngine() {
   }, []);
 
   const schedulePartNotes = useCallback(
-    async (part: Part, instrument: any, passageStart: number, passageEnd: number, score: any) => {
+    async (
+      part: Part,
+      instrument: PlayableInstrument,
+      passageStart: number,
+      passageEnd: number,
+      score: ParsedScore
+    ) => {
       for (const measure of part.measures) {
         for (const note of measure.notes) {
           if (!note.pitch || note.isRest) continue;
@@ -43,8 +122,9 @@ export function useAudioEngine() {
           const offset = noteStart - passageStart;
           const durationSec = note.duration * (60 / score.tempo);
           const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
+          const midi = pitchToMidi(note.pitch.step, note.pitch.octave, note.pitch.alter);
           Tone.getTransport().schedule((time) => {
-            instrument.play(freq.toString(), AC.currentTime + time, { duration: durationSec });
+            instrument.play({ frequency: freq, midi }, time, durationSec);
           }, offset);
         }
       }
@@ -64,7 +144,7 @@ export function useAudioEngine() {
     Tone.getTransport().stop();
     Tone.getTransport().position = 0;
 
-    const osmd: any = (window as any).__osmd;
+    const osmd = window.__osmd;
     if (osmd) {
       osmd.cursor.reset();
       osmd.cursor.show();
@@ -73,12 +153,12 @@ export function useAudioEngine() {
     // Load instruments (cached after first load)
     if (state.playVoice && state.voicePartId) {
       if (!instrumentsRef.current["voice"]) {
-        instrumentsRef.current["voice"] = await getInstrument("choir-aahs");
+        instrumentsRef.current["voice"] = await getPlayableInstrument("choir_aahs");
       }
     }
     if (state.playAccompaniment && state.accompanimentPartId) {
       if (!instrumentsRef.current["piano"]) {
-        instrumentsRef.current["piano"] = await getInstrument("acoustic-grand-piano");
+        instrumentsRef.current["piano"] = await getPlayableInstrument("acoustic_grand_piano");
       }
     }
 
@@ -94,7 +174,7 @@ export function useAudioEngine() {
 
     // Advance OSMD cursor on every 16th note tick
     Tone.getTransport().scheduleRepeat(() => {
-      const osmdNow: any = (window as any).__osmd;
+      const osmdNow = window.__osmd;
       if (osmdNow) osmdNow.cursor.next();
     }, "16n");
 

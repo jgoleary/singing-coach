@@ -19,7 +19,11 @@ export function useMicRecorder() {
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: recorder.mimeType });
       setLastRecordingBlob(blob);
-      onStop(blob);
+      Promise.resolve(onStop(blob)).catch((err) => {
+        const message = err instanceof Error ? err.message : "Recording analysis failed";
+        useStore.getState().setAnalysisError(message);
+        useStore.getState().setAnalysisStatus("error");
+      });
       stream.getTracks().forEach((t) => t.stop());
       useStore.getState().setIsRecording(false);
     };

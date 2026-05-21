@@ -33,9 +33,14 @@ export default function RecordButton() {
     }
     const durationMs = getPassageDurationMs();
     play();
-    await startRecording(durationMs, async (blob) => {
-      await analyze(blob);
-    });
+    try {
+      await startRecording(durationMs, async (blob) => {
+        await analyze(blob);
+      });
+    } catch {
+      stopPlayback();
+      alert("Microphone access denied. Please allow microphone access and try again.");
+    }
   }
 
   if (!parsedScore) return null;

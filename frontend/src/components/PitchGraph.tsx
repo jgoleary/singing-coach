@@ -60,6 +60,25 @@ const NOTE_TICKS = [
 export default function PitchGraph() {
   const pitchData = useStore((s) => s.pitchData);
   const targetNotes = useStore((s) => s.targetNotes);
+  const octaveDown = useStore((s) => s.octaveDown);
+  const analysisStatus = useStore((s) => s.analysisStatus);
+  const analysisError = useStore((s) => s.analysisError);
+
+  if (analysisStatus === "analyzing") {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-gray-500">
+        Analyzing recording...
+      </div>
+    );
+  }
+
+  if (analysisStatus === "error") {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center text-sm text-red-400">
+        Pitch analysis failed. {analysisError ?? "Check that the backend is running on localhost:8000."}
+      </div>
+    );
+  }
 
   if (!pitchData || !targetNotes) {
     return (
@@ -69,13 +88,26 @@ export default function PitchGraph() {
     );
   }
 
-  const duration = pitchData.at(-1)?.time ?? 0;
-  const data = buildChartData(pitchData, targetNotes, duration);
+  const displayTargetNotes = octaveDown
+    ? targetNotes.map((note) => ({ ...note, frequency: note.frequency / 2 }))
+    : targetNotes;
+  const pitchDuration = pitchData.at(-1)?.time ?? 0;
+  const targetDuration = Math.max(0, ...displayTargetNotes.map((note) => note.endTime));
+  const duration = Math.max(pitchDuration, targetDuration);
+  const data = buildChartData(pitchData, displayTargetNotes, duration);
 
   const allFreqs = [
     ...pitchData.map((f) => f.frequency),
-    ...targetNotes.map((n) => n.frequency),
+    ...displayTargetNotes.map((n) => n.frequency),
   ].filter(Boolean);
+
+  if (duration <= 0 || allFreqs.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center p-6 text-center text-sm text-gray-500">
+        No pitch frames were detected. Try recording a louder sustained note and make sure the backend finished analysis.
+      </div>
+    );
+  }
   const minFreq = Math.max(80, Math.min(...allFreqs) * 0.7);
   const maxFreq = Math.min(2000, Math.max(...allFreqs) * 1.3);
 
@@ -106,11 +138,17 @@ export default function PitchGraph() {
             tick={{ fill: "#718096", fontSize: 10 }}
           />
           <Tooltip
-            formatter={(value: number, name: string) => [
-              `${value.toFixed(1)} Hz (${frequencyToNoteName(value)})`,
-              name === "target" ? "Target" : "Voice",
-            ]}
-            labelFormatter={(t: number) => `${t.toFixed(2)}s`}
+            formatter={(value, name) => {
+              const numericValue = typeof value === "number" ? value : Number(value);
+              if (!Number.isFinite(numericValue)) return ["", String(name)];
+              return [
+                `${numericValue.toFixed(1)} Hz (${frequencyToNoteName(numericValue)})`,
+                name === "target" ? "Target" : "Voice",
+              ];
+            }}
+            labelFormatter={(label) =>
+              typeof label === "number" ? `${label.toFixed(2)}s` : String(label)
+            }
             contentStyle={{ background: "#1a1a2e", border: "1px solid #2a2a4e", fontSize: 11 }}
           />
           <Line

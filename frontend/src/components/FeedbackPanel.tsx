@@ -30,6 +30,9 @@ export default function FeedbackPanel() {
   const lastRecordingBlob = useStore((s) => s.lastRecordingBlob);
   const pitchData = useStore((s) => s.pitchData);
   const targetNotes = useStore((s) => s.targetNotes);
+  const octaveDown = useStore((s) => s.octaveDown);
+  const analysisStatus = useStore((s) => s.analysisStatus);
+  const analysisError = useStore((s) => s.analysisError);
   const audioRef = useRef<HTMLAudioElement>(null);
   const urlRef = useRef<string | null>(null);
 
@@ -42,7 +45,10 @@ export default function FeedbackPanel() {
 
   if (!lastRecordingBlob) return null;
 
-  const stats = pitchData && targetNotes ? computeStats(pitchData, targetNotes) : null;
+  const displayTargetNotes = octaveDown && targetNotes
+    ? targetNotes.map((note) => ({ ...note, frequency: note.frequency / 2 }))
+    : targetNotes;
+  const stats = pitchData && displayTargetNotes ? computeStats(pitchData, displayTargetNotes) : null;
 
   return (
     <div className="p-3">
@@ -54,6 +60,14 @@ export default function FeedbackPanel() {
       >
         ▶ Play My Recording
       </button>
+      {analysisStatus === "analyzing" && (
+        <div className="mt-2 text-xs text-blue-300">Analyzing pitch...</div>
+      )}
+      {analysisStatus === "error" && (
+        <div className="mt-2 text-xs text-red-400">
+          Pitch analysis failed. {analysisError ?? "Is the backend running?"}
+        </div>
+      )}
       {stats && (
         <div className="mt-3 space-y-1 text-xs text-gray-400">
           <div>

@@ -27,8 +27,7 @@ export function usePitchAnalysis() {
         if (startSec < passageStart || startSec >= passageEnd) continue;
         // duration in seconds: note.duration beats * secondsPerBeat
         const durationSec = note.duration * (60 / score.tempo);
-        let freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
-        if (state.octaveDown) freq /= 2;
+        const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
         targets.push({
           startTime: startSec - passageStart,
           endTime: startSec - passageStart + durationSec,
@@ -40,19 +39,38 @@ export function usePitchAnalysis() {
   }, []);
 
   const analyze = useCallback(async (blob: Blob) => {
+    const store = useStore.getState();
+    store.setAnalysisStatus("analyzing");
+    store.setAnalysisError(null);
+    store.setPitchData(null);
+    store.setTargetNotes(computeTargetNotes());
+
     const form = new FormData();
     form.append("audio", blob, "recording.webm");
 
-    const res = await fetch("http://localhost:8000/analyze-pitch", {
-      method: "POST",
-      body: form,
-    });
+    try {
+      const res = await fetch("http://localhost:8000/analyze-pitch", {
+        method: "POST",
+        body: form,
+      });
 
-    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
-    const data: { frames: PitchFrame[]; duration: number } = await res.json();
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || `Backend error: ${res.status}`);
+      }
+      const data: { frames: PitchFrame[]; duration: number } = await res.json();
 
-    useStore.getState().setPitchData(data.frames);
-    useStore.getState().setTargetNotes(computeTargetNotes());
+      const nextStore = useStore.getState();
+      nextStore.setPitchData(data.frames);
+      nextStore.setTargetNotes(computeTargetNotes());
+      nextStore.setAnalysisStatus("done");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Pitch analysis failed";
+      const nextStore = useStore.getState();
+      nextStore.setAnalysisError(message);
+      nextStore.setAnalysisStatus("error");
+      throw err;
+    }
   }, [computeTargetNotes]);
 
   return { analyze };

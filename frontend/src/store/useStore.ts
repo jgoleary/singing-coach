@@ -14,6 +14,8 @@ interface AppState {
   lastRecordingBlob: Blob | null;
   pitchData: PitchFrame[] | null;
   targetNotes: TargetNote[] | null;
+  analysisStatus: "idle" | "analyzing" | "done" | "error";
+  analysisError: string | null;
 
   setParsedScore: (score: ParsedScore | null) => void;
   setVoicePartId: (id: string | null) => void;
@@ -27,6 +29,8 @@ interface AppState {
   setLastRecordingBlob: (blob: Blob | null) => void;
   setPitchData: (frames: PitchFrame[] | null) => void;
   setTargetNotes: (notes: TargetNote[] | null) => void;
+  setAnalysisStatus: (status: AppState["analysisStatus"]) => void;
+  setAnalysisError: (error: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -42,6 +46,8 @@ export const useStore = create<AppState>((set) => ({
   lastRecordingBlob: null,
   pitchData: null,
   targetNotes: null,
+  analysisStatus: "idle",
+  analysisError: null,
 
   setParsedScore: (score) => set({ parsedScore: score }),
   setVoicePartId: (id) => set({ voicePartId: id }),
@@ -55,4 +61,6 @@ export const useStore = create<AppState>((set) => ({
   setLastRecordingBlob: (blob) => set({ lastRecordingBlob: blob }),
   setPitchData: (frames) => set({ pitchData: frames }),
   setTargetNotes: (notes) => set({ targetNotes: notes }),
+  setAnalysisStatus: (status) => set({ analysisStatus: status }),
+  setAnalysisError: (error) => set({ analysisError: error }),
 }));
