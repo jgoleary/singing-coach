@@ -7,7 +7,14 @@ export function useMicRecorder() {
 
   const start = useCallback(async (durationMs: number, onStop: (blob: Blob) => void) => {
     const { setIsRecording, setLastRecordingBlob } = useStore.getState();
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+      video: false,
+    });
     chunksRef.current = [];
     const recorder = new MediaRecorder(stream);
     mediaRecorderRef.current = recorder;

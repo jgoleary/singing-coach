@@ -43,8 +43,8 @@ function buildChartData(pitchData: PitchFrame[], targetNotes: TargetNote[], dura
       return {
         time: t,
         target: targetMap.get(t) ?? null,
-        voice: frame && frame.confidence >= 0.5 ? frame.frequency : null,
-        voiceFaint: frame && frame.confidence < 0.5 ? frame.frequency : null,
+        voice: frame && frame.confidence >= 0.65 ? frame.frequency : null,
+        voiceFaint: frame && frame.confidence < 0.65 ? frame.frequency : null,
       };
     });
 }

@@ -93,16 +93,17 @@ export function useAudioEngine() {
     const state = useStore.getState();
     const score = state.parsedScore;
     if (!score) return null;
+    const tempo = score.tempo * (state.tempoScale / 100);
     const p = state.passage;
     const allMeasures = score.parts[0]?.measures ?? [];
     const lastMeasure = allMeasures.at(-1);
     if (!lastMeasure) return null;
     const start = p
-      ? beatsToSeconds(p.startMeasure, p.startBeat, score.tempo, allMeasures[0])
+      ? beatsToSeconds(p.startMeasure, p.startBeat, tempo, allMeasures[0])
       : 0;
     const end = p
-      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, score.tempo, lastMeasure)
-      : beatsToSeconds(lastMeasure.number, lastMeasure.beats + 1, score.tempo, lastMeasure);
+      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, tempo, lastMeasure)
+      : beatsToSeconds(lastMeasure.number, lastMeasure.beats + 1, tempo, lastMeasure);
     return { start, end, duration: end - start };
   }, []);
 
@@ -112,15 +113,16 @@ export function useAudioEngine() {
       instrument: PlayableInstrument,
       passageStart: number,
       passageEnd: number,
-      score: ParsedScore
+      score: ParsedScore,
+      tempo: number
     ) => {
       for (const measure of part.measures) {
         for (const note of measure.notes) {
           if (!note.pitch || note.isRest) continue;
-          const noteStart = beatsToSeconds(measure.number, note.beatPosition, score.tempo, measure);
+          const noteStart = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
           if (noteStart < passageStart || noteStart >= passageEnd) continue;
           const offset = noteStart - passageStart;
-          const durationSec = note.duration * (60 / score.tempo);
+          const durationSec = note.duration * (60 / tempo);
           const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
           const midi = pitchToMidi(note.pitch.step, note.pitch.octave, note.pitch.alter);
           Tone.getTransport().schedule((time) => {
@@ -164,13 +166,15 @@ export function useAudioEngine() {
       }
     }
 
+    const tempo = score.tempo * (state.tempoScale / 100);
+
     // Schedule notes for each part
     for (const part of score.parts) {
       if (part.id === state.voicePartId && state.playVoice) {
-        await schedulePartNotes(part, instrumentsRef.current["voice"], bounds.start, bounds.end, score);
+        await schedulePartNotes(part, instrumentsRef.current["voice"], bounds.start, bounds.end, score, tempo);
       }
       if (part.id === state.accompanimentPartId && state.playAccompaniment) {
-        await schedulePartNotes(part, instrumentsRef.current["piano"], bounds.start, bounds.end, score);
+        await schedulePartNotes(part, instrumentsRef.current["piano"], bounds.start, bounds.end, score, tempo);
       }
     }
 

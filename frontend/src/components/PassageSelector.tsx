@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useStore } from "../store/useStore";
 import { beatsToSeconds } from "../utils/noteUtils";
 
@@ -46,11 +46,21 @@ const fieldLblStyle: React.CSSProperties = {
 };
 
 export default function PassageSelector() {
-  const { parsedScore, setPassage } = useStore();
+  const { parsedScore, passage, setPassage } = useStore();
   const [startMeasure, setStartMeasure] = useState(1);
   const [startBeat, setStartBeat] = useState(1);
   const [endMeasure, setEndMeasure] = useState(1);
   const [endBeat, setEndBeat] = useState(4);
+
+  // Sync steppers when passage is set externally (e.g. by clicking the score)
+  useEffect(() => {
+    if (passage) {
+      setStartMeasure(passage.startMeasure);
+      setStartBeat(passage.startBeat);
+      setEndMeasure(passage.endMeasure);
+      setEndBeat(passage.endBeat);
+    }
+  }, [passage]);
 
   const lastMeasure = parsedScore?.parts[0]?.measures.at(-1)?.number ?? 1;
   const lastBeats = parsedScore?.parts[0]?.measures.at(-1)?.beats ?? 4;
@@ -108,7 +118,7 @@ export default function PassageSelector() {
         </div>
         <div>
           <span style={fieldLblStyle}>Beat</span>
-          <Stepper value={startBeat} min={1} step={0.25}
+          <Stepper value={startBeat} min={1} step={1}
             onChange={(v) => { setStartBeat(v); applyIfValid(startMeasure, v, endMeasure, endBeat); }} />
         </div>
         <div>
@@ -118,7 +128,7 @@ export default function PassageSelector() {
         </div>
         <div>
           <span style={fieldLblStyle}>Beat</span>
-          <Stepper value={endBeat} min={1} step={0.25}
+          <Stepper value={endBeat} min={1} step={1}
             onChange={(v) => { setEndBeat(v); applyIfValid(startMeasure, startBeat, endMeasure, v); }} />
         </div>
       </div>

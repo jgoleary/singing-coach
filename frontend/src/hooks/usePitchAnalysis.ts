@@ -10,23 +10,23 @@ export function usePitchAnalysis() {
     const voicePart = score?.parts.find((p) => p.id === state.voicePartId);
     if (!score || !voicePart) return [];
 
+    const tempo = score.tempo * (state.tempoScale / 100);
     const allMeasures = score.parts[0].measures;
     const p = state.passage;
     const passageStart = p
-      ? beatsToSeconds(p.startMeasure, p.startBeat, score.tempo, allMeasures[0])
+      ? beatsToSeconds(p.startMeasure, p.startBeat, tempo, allMeasures[0])
       : 0;
     const passageEnd = p
-      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, score.tempo, allMeasures.at(-1)!)
+      ? beatsToSeconds(p.endMeasure, p.endBeat + 1, tempo, allMeasures.at(-1)!)
       : Infinity;
 
     const targets: TargetNote[] = [];
     for (const measure of voicePart.measures) {
       for (const note of measure.notes) {
         if (!note.pitch || note.isRest) continue;
-        const startSec = beatsToSeconds(measure.number, note.beatPosition, score.tempo, measure);
+        const startSec = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
         if (startSec < passageStart || startSec >= passageEnd) continue;
-        // duration in seconds: note.duration beats * secondsPerBeat
-        const durationSec = note.duration * (60 / score.tempo);
+        const durationSec = note.duration * (60 / tempo);
         const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
         targets.push({
           startTime: startSec - passageStart,

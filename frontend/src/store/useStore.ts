@@ -20,6 +20,7 @@ interface AppState {
   analysisError: string | null;
   voiceInstrument: string;
   accompanimentInstrument: string;
+  tempoScale: number; // percentage of score tempo, 50–150
 
   setParsedScore: (score: ParsedScore | null) => void;
   setVoicePartId: (id: string | null) => void;
@@ -39,6 +40,7 @@ interface AppState {
   setAnalysisError: (error: string | null) => void;
   setVoiceInstrument: (name: string) => void;
   setAccompanimentInstrument: (name: string) => void;
+  setTempoScale: (v: number) => void;
   clearRecording: () => void;
 }
 
@@ -61,6 +63,7 @@ export const useStore = create<AppState>((set) => ({
   analysisError: null,
   voiceInstrument: "choir_aahs",
   accompanimentInstrument: "acoustic_grand_piano",
+  tempoScale: Number(localStorage.getItem("tempoScale") ?? 100),
 
   setParsedScore: (score) => set({ parsedScore: score }),
   setVoicePartId: (id) => set({ voicePartId: id }),
@@ -80,6 +83,7 @@ export const useStore = create<AppState>((set) => ({
   setAnalysisError: (error) => set({ analysisError: error }),
   setVoiceInstrument: (name) => set({ voiceInstrument: name }),
   setAccompanimentInstrument: (name) => set({ accompanimentInstrument: name }),
+  setTempoScale: (v) => { localStorage.setItem("tempoScale", String(v)); set({ tempoScale: v }); },
   clearRecording: () => set({
     lastRecordingBlob: null, pitchData: null, targetNotes: null,
     analysisStatus: "idle", analysisError: null,

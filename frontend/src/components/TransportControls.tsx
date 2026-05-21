@@ -95,9 +95,9 @@ export default function TransportControls() {
   const {
     isPlaying, playVoice, playAccompaniment, octaveDown,
     parsedScore, voicePartId, accompanimentPartId,
-    voiceInstrument, accompanimentInstrument,
+    voiceInstrument, accompanimentInstrument, tempoScale,
     setPlayVoice, setPlayAccompaniment, setOctaveDown,
-    setVoiceInstrument, setAccompanimentInstrument,
+    setVoiceInstrument, setAccompanimentInstrument, setTempoScale,
   } = useStore();
   const { play, stop } = useAudioEngine();
   const [repeat, setRepeat] = useState(false);
@@ -164,6 +164,25 @@ export default function TransportControls() {
         >
           <IconRepeat />
         </button>
+      </div>
+
+      {/* Tempo slider */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "baseline",
+          marginBottom: 4,
+        }}>
+          <span style={{ fontSize: 11, color: "var(--sidebar-ink-3)" }}>Tempo</span>
+          <span style={{ fontSize: 11, color: "var(--sidebar-ink-1)", fontVariantNumeric: "tabular-nums" }}>
+            ♩= {Math.round(parsedScore!.tempo * tempoScale / 100)}
+          </span>
+        </div>
+        <input
+          type="range" min={50} max={150} step={5}
+          value={tempoScale}
+          onChange={(e) => setTempoScale(Number(e.target.value))}
+          style={{ width: "100%", accentColor: "var(--accent)", cursor: "pointer" }}
+        />
       </div>
 
       {/* Voice part row */}
