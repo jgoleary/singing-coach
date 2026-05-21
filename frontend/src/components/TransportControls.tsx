@@ -2,9 +2,29 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useStore } from "../store/useStore";
 import { useAudioEngine } from "../hooks/useAudioEngine";
 
+const VOICE_INSTRUMENTS = [
+  { value: "choir_aahs", label: "Choir aahs" },
+  { value: "voice_oohs", label: "Voice oohs" },
+  { value: "synth_voice", label: "Synth voice" },
+  { value: "flute", label: "Flute" },
+  { value: "violin", label: "Violin" },
+];
+
+const ACCOMPANIMENT_INSTRUMENTS = [
+  { value: "acoustic_grand_piano", label: "Grand piano" },
+  { value: "bright_acoustic_piano", label: "Bright piano" },
+  { value: "electric_grand_piano", label: "Electric piano" },
+  { value: "harpsichord", label: "Harpsichord" },
+  { value: "church_organ", label: "Church organ" },
+  { value: "acoustic_guitar_nylon", label: "Classical guitar" },
+  { value: "string_ensemble_1", label: "Strings" },
+];
+
 export default function TransportControls() {
   const { isPlaying, playVoice, playAccompaniment, octaveDown, parsedScore, voicePartId, accompanimentPartId,
-    setPlayVoice, setPlayAccompaniment, setOctaveDown } = useStore();
+    voiceInstrument, accompanimentInstrument,
+    setPlayVoice, setPlayAccompaniment, setOctaveDown,
+    setVoiceInstrument, setAccompanimentInstrument } = useStore();
   const { play, stop } = useAudioEngine();
   const [repeat, setRepeat] = useState(false);
   const repeatRef = useRef(repeat);
@@ -59,11 +79,33 @@ export default function TransportControls() {
           Play voice
           <span className="truncate text-gray-600">({voiceName})</span>
         </label>
+        {playVoice && voicePartId && (
+          <select
+            value={voiceInstrument}
+            onChange={(e) => setVoiceInstrument(e.target.value)}
+            className="w-full text-[10px] bg-[#1a1a2e] text-gray-300 border border-[#2a2a4e] rounded px-1 py-0.5"
+          >
+            {VOICE_INSTRUMENTS.map((i) => (
+              <option key={i.value} value={i.value}>{i.label}</option>
+            ))}
+          </select>
+        )}
         <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={playAccompaniment} onChange={(e) => setPlayAccompaniment(e.target.checked)} className="accent-blue-400" />
           Play accompaniment
           <span className="truncate text-gray-600">({accompanimentName})</span>
         </label>
+        {playAccompaniment && accompanimentPartId && (
+          <select
+            value={accompanimentInstrument}
+            onChange={(e) => setAccompanimentInstrument(e.target.value)}
+            className="w-full text-[10px] bg-[#1a1a2e] text-gray-300 border border-[#2a2a4e] rounded px-1 py-0.5"
+          >
+            {ACCOMPANIMENT_INSTRUMENTS.map((i) => (
+              <option key={i.value} value={i.value}>{i.label}</option>
+            ))}
+          </select>
+        )}
         <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer">
           <input type="checkbox" checked={octaveDown} onChange={(e) => setOctaveDown(e.target.checked)} className="accent-blue-400" />
           Octave ↓ (graph only)

@@ -150,15 +150,17 @@ export function useAudioEngine() {
       osmd.cursor.show();
     }
 
-    // Load instruments (cached after first load)
+    // Load instruments (cached by name; reload if instrument changed)
     if (state.playVoice && state.voicePartId) {
-      if (!instrumentsRef.current["voice"]) {
-        instrumentsRef.current["voice"] = await getPlayableInstrument("choir_aahs");
+      if (instrumentsRef.current["voice_name"] !== state.voiceInstrument) {
+        instrumentsRef.current["voice"] = await getPlayableInstrument(state.voiceInstrument);
+        instrumentsRef.current["voice_name"] = state.voiceInstrument;
       }
     }
     if (state.playAccompaniment && state.accompanimentPartId) {
-      if (!instrumentsRef.current["piano"]) {
-        instrumentsRef.current["piano"] = await getPlayableInstrument("acoustic_grand_piano");
+      if (instrumentsRef.current["piano_name"] !== state.accompanimentInstrument) {
+        instrumentsRef.current["piano"] = await getPlayableInstrument(state.accompanimentInstrument);
+        instrumentsRef.current["piano_name"] = state.accompanimentInstrument;
       }
     }
 

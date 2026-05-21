@@ -16,6 +16,8 @@ interface AppState {
   targetNotes: TargetNote[] | null;
   analysisStatus: "idle" | "analyzing" | "done" | "error";
   analysisError: string | null;
+  voiceInstrument: string;
+  accompanimentInstrument: string;
 
   setParsedScore: (score: ParsedScore | null) => void;
   setVoicePartId: (id: string | null) => void;
@@ -31,6 +33,8 @@ interface AppState {
   setTargetNotes: (notes: TargetNote[] | null) => void;
   setAnalysisStatus: (status: AppState["analysisStatus"]) => void;
   setAnalysisError: (error: string | null) => void;
+  setVoiceInstrument: (name: string) => void;
+  setAccompanimentInstrument: (name: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -48,6 +52,8 @@ export const useStore = create<AppState>((set) => ({
   targetNotes: null,
   analysisStatus: "idle",
   analysisError: null,
+  voiceInstrument: "choir_aahs",
+  accompanimentInstrument: "acoustic_grand_piano",
 
   setParsedScore: (score) => set({ parsedScore: score }),
   setVoicePartId: (id) => set({ voicePartId: id }),
@@ -63,4 +69,6 @@ export const useStore = create<AppState>((set) => ({
   setTargetNotes: (notes) => set({ targetNotes: notes }),
   setAnalysisStatus: (status) => set({ analysisStatus: status }),
   setAnalysisError: (error) => set({ analysisError: error }),
+  setVoiceInstrument: (name) => set({ voiceInstrument: name }),
+  setAccompanimentInstrument: (name) => set({ accompanimentInstrument: name }),
 }));
