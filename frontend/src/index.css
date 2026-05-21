@@ -1,7 +1,113 @@
 @import "tailwindcss";
 
+@theme {
+  /* Surfaces */
+  --color-bg:        oklch(0.955 0.012 88);
+  --color-surface:   oklch(0.935 0.014 86);
+  --color-surface-2: oklch(0.97  0.012 88);
+  --color-surface-3: white;
+
+  /* Lines */
+  --color-line:        oklch(0.82 0.018 80);
+  --color-line-soft:   oklch(0.86 0.016 82);
+  --color-line-bright: oklch(0.72 0.022 75);
+
+  /* Ink scale */
+  --color-ink-1: oklch(0.18 0.014 60);
+  --color-ink-2: oklch(0.34 0.013 60);
+  --color-ink-3: oklch(0.50 0.013 60);
+  --color-ink-4: oklch(0.64 0.013 60);
+  --color-ink-5: oklch(0.78 0.013 60);
+
+  /* Accents */
+  --color-accent:      oklch(0.50 0.16 32);
+  --color-accent-soft: oklch(0.50 0.16 32 / 0.14);
+  --color-target:      oklch(0.42 0.13 245);
+  --color-target-soft: oklch(0.42 0.13 245 / 0.16);
+  --color-danger:      oklch(0.52 0.21 27);
+  --color-danger-soft: oklch(0.52 0.21 27 / 0.12);
+  --color-success:     oklch(0.48 0.15 145);
+
+  /* Paper */
+  --color-paper:      white;
+  --color-paper-ink:  oklch(0.16 0.014 60);
+  --color-paper-muted: oklch(0.46 0.013 60);
+
+  /* Fonts */
+  --font-display: 'Newsreader', ui-serif, Georgia, serif;
+  --font-sans:    'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:    'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius:    10px;
+  --radius-lg: 14px;
+}
+
+:root {
+  /* Raw CSS vars for use in arbitrary Tailwind classes and non-Tailwind contexts */
+  --bg:           oklch(0.955 0.012 88);
+  --surface:      oklch(0.935 0.014 86);
+  --surface-2:    oklch(0.97  0.012 88);
+  --surface-3:    white;
+
+  --line:         oklch(0.82 0.018 80);
+  --line-soft:    oklch(0.86 0.016 82);
+  --line-bright:  oklch(0.72 0.022 75);
+
+  --ink-1:  oklch(0.18 0.014 60);
+  --ink-2:  oklch(0.34 0.013 60);
+  --ink-3:  oklch(0.50 0.013 60);
+  --ink-4:  oklch(0.64 0.013 60);
+  --ink-5:  oklch(0.78 0.013 60);
+
+  --accent:       oklch(0.50 0.16 32);
+  --accent-soft:  oklch(0.50 0.16 32 / 0.14);
+  --target:       oklch(0.42 0.13 245);
+  --target-soft:  oklch(0.42 0.13 245 / 0.16);
+  --danger:       oklch(0.52 0.21 27);
+  --danger-soft:  oklch(0.52 0.21 27 / 0.12);
+  --success:      oklch(0.48 0.15 145);
+
+  --paper:        white;
+  --paper-ink:    oklch(0.16 0.014 60);
+  --paper-muted:  oklch(0.46 0.013 60);
+
+  --sidebar-bg:        var(--surface);
+  --sidebar-ink-1:     var(--ink-1);
+  --sidebar-ink-2:     var(--ink-2);
+  --sidebar-ink-3:     var(--ink-3);
+  --sidebar-ink-4:     var(--ink-4);
+  --sidebar-line:      var(--line);
+  --sidebar-line-soft: var(--line-soft);
+  --sidebar-surface:   var(--surface-3);
+
+  --font-display: 'Newsreader', ui-serif, Georgia, serif;
+  --font-sans:    'Geist', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono:    'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --shadow-1: 0 1px 0 oklch(1 0 0 / 0.7) inset, 0 1px 2px oklch(0.4 0.02 60 / 0.07);
+}
+
+/* ── Base ───────────────────────────────────────────────────────── */
 body {
-  background-color: #0f0f1a;
-  color: #e2e8f0;
-  font-family: system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Pulse animation for record button dot ──────────────────────── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+/* ── Toggle pill knob transition ────────────────────────────────── */
+.toggle-knob {
+  transition: transform 0.18s ease;
 }
