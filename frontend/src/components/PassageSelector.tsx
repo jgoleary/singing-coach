@@ -46,7 +46,7 @@ const fieldLblStyle: React.CSSProperties = {
 };
 
 export default function PassageSelector() {
-  const { parsedScore, passage, setPassage } = useStore();
+  const { parsedScore, passage, setPassage, addFlaggedPassage } = useStore();
   const [startMeasure, setStartMeasure] = useState(1);
   const [startBeat, setStartBeat] = useState(1);
   const [endMeasure, setEndMeasure] = useState(1);
@@ -140,15 +140,32 @@ export default function PassageSelector() {
         </div>
       )}
 
-      {/* Whole piece shortcut */}
-      <button
-        type="button" onClick={handleWholePiece}
-        style={{
-          width: "100%", padding: "7px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500,
-          background: "transparent", border: "1px solid var(--sidebar-line)",
-          color: "var(--sidebar-ink-3)", cursor: "pointer",
-        }}
-      >Whole piece</button>
+      {/* Whole piece + flag row */}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          type="button" onClick={handleWholePiece}
+          style={{
+            flex: 1, padding: "7px 10px", borderRadius: 7, fontSize: 12, fontWeight: 500,
+            background: "transparent", border: "1px solid var(--sidebar-line)",
+            color: "var(--sidebar-ink-3)", cursor: "pointer",
+          }}
+        >Whole piece</button>
+        <button
+          type="button"
+          disabled={!passage}
+          title="Save passage for study"
+          onClick={() => passage && addFlaggedPassage(passage)}
+          style={{
+            width: 34, flexShrink: 0, borderRadius: 7,
+            border: "1px solid var(--sidebar-line)",
+            background: "transparent",
+            color: passage ? "var(--sidebar-ink-2)" : "var(--sidebar-ink-5)",
+            cursor: passage ? "pointer" : "not-allowed",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 15,
+          }}
+        >⚑</button>
+      </div>
     </div>
   );
 }

@@ -73,6 +73,7 @@ def analyze_audio(audio: np.ndarray, sr: int) -> dict:
     time, frequency, confidence, _ = crepe.predict(
         audio.astype(np.float32) / 32768.0,
         sr,
+        model_capacity="small",
         viterbi=True,
         step_size=10,
         verbose=0,

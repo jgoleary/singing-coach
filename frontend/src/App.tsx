@@ -5,6 +5,7 @@ import FileLoader, { loadScoreFromStorage } from "./components/FileLoader";
 import ScoreViewer from "./components/ScoreViewer";
 import PitchGraph from "./components/PitchGraph";
 import PassageSelector from "./components/PassageSelector";
+import FlaggedPassages from "./components/FlaggedPassages";
 import TransportControls from "./components/TransportControls";
 import RecordButton from "./components/RecordButton";
 import FeedbackPanel from "./components/FeedbackPanel";
@@ -160,11 +161,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Active tab content */}
-          <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
-            {activeTab === "score" && <ScoreViewer />}
-            {activeTab === "pitch" && hasRecording && (
-              <PitchRegion hasFinishedAnalysis={hasFinishedAnalysis} />
+          {/* Active tab content — both stay mounted to preserve scroll/OSMD state */}
+          <div style={{ flex: 1, overflow: "hidden", minHeight: 0, position: "relative" }}>
+            <div style={{ position: "absolute", inset: 0, display: activeTab === "score" ? "flex" : "none", flexDirection: "column" }}>
+              <ScoreViewer />
+            </div>
+            {hasRecording && (
+              <div style={{ position: "absolute", inset: 0, display: activeTab === "pitch" ? "flex" : "none", flexDirection: "column" }}>
+                <PitchRegion hasFinishedAnalysis={hasFinishedAnalysis} />
+              </div>
             )}
           </div>
 
@@ -184,6 +189,7 @@ export default function App() {
           overflowY: "auto",
         }}>
           <PassageSelector />
+          <FlaggedPassages />
           <TransportControls />
           <RecordButton />
           <FeedbackPanel />

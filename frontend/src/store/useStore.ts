@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { ParsedScore, PitchFrame, TargetNote, Passage } from "../types";
 
+export type FlaggedPassage = { id: string; passage: Passage };
+
 interface AppState {
   parsedScore: ParsedScore | null;
   voicePartId: string | null;
@@ -21,6 +23,7 @@ interface AppState {
   voiceInstrument: string;
   accompanimentInstrument: string;
   tempoScale: number; // percentage of score tempo, 50–150
+  flaggedPassages: FlaggedPassage[];
 
   setParsedScore: (score: ParsedScore | null) => void;
   setVoicePartId: (id: string | null) => void;
@@ -41,6 +44,8 @@ interface AppState {
   setVoiceInstrument: (name: string) => void;
   setAccompanimentInstrument: (name: string) => void;
   setTempoScale: (v: number) => void;
+  addFlaggedPassage: (passage: Passage) => void;
+  removeFlaggedPassage: (id: string) => void;
   clearRecording: () => void;
 }
 
@@ -64,6 +69,7 @@ export const useStore = create<AppState>((set) => ({
   voiceInstrument: "choir_aahs",
   accompanimentInstrument: "acoustic_grand_piano",
   tempoScale: Number(localStorage.getItem("tempoScale") ?? 100),
+  flaggedPassages: JSON.parse(localStorage.getItem("flaggedPassages") ?? "[]"),
 
   setParsedScore: (score) => set({ parsedScore: score }),
   setVoicePartId: (id) => set({ voicePartId: id }),
@@ -84,6 +90,16 @@ export const useStore = create<AppState>((set) => ({
   setVoiceInstrument: (name) => set({ voiceInstrument: name }),
   setAccompanimentInstrument: (name) => set({ accompanimentInstrument: name }),
   setTempoScale: (v) => { localStorage.setItem("tempoScale", String(v)); set({ tempoScale: v }); },
+  addFlaggedPassage: (passage) => set((s) => {
+    const next = [...s.flaggedPassages, { id: `${Date.now()}`, passage }];
+    localStorage.setItem("flaggedPassages", JSON.stringify(next));
+    return { flaggedPassages: next };
+  }),
+  removeFlaggedPassage: (id) => set((s) => {
+    const next = s.flaggedPassages.filter((f) => f.id !== id);
+    localStorage.setItem("flaggedPassages", JSON.stringify(next));
+    return { flaggedPassages: next };
+  }),
   clearRecording: () => set({
     lastRecordingBlob: null, pitchData: null, targetNotes: null,
     analysisStatus: "idle", analysisError: null,
