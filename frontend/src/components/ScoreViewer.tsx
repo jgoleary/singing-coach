@@ -21,7 +21,25 @@ declare global {
   }
 }
 
-type MeasureRect = { left: number; top: number; width: number; height: number };
+type StaffEntry = { timestamp: number; x: number };
+type MeasureRect = { left: number; top: number; width: number; height: number; entries: StaffEntry[] };
+
+// Returns the x position for an arbitrary timestamp within a measure by linearly
+// interpolating between the surrounding note entries. Returns null only when entries is empty.
+function xForTimestamp(entries: StaffEntry[], ts: number): number | null {
+  if (entries.length === 0) return null;
+  let prev: StaffEntry | null = null;
+  let next: StaffEntry | null = null;
+  for (const e of entries) {
+    if (e.timestamp <= ts + 0.001) prev = e;
+    if (e.timestamp >= ts - 0.001 && next === null) next = e;
+  }
+  if (prev && next && next.timestamp - prev.timestamp > 0.001) {
+    const t = (ts - prev.timestamp) / (next.timestamp - prev.timestamp);
+    return prev.x + (next.x - prev.x) * t;
+  }
+  return prev?.x ?? next?.x ?? null;
+}
 
 const metaLabelStyle: React.CSSProperties = {
   fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em",
@@ -55,7 +73,7 @@ export default function ScoreViewer() {
     const containerOffsetLeft = containerRef.current.offsetLeft;
     const containerOffsetTop = containerRef.current.offsetTop;
 
-    type RawData = { x: number; w: number; topY: number; bottomY: number };
+    type RawData = { x: number; w: number; topY: number; bottomY: number; entries: StaffEntry[] };
     const rawData: (RawData | null)[] = measureList.map((staves) => {
       if (!staves?.length) return null;
       const first = staves[0];
@@ -67,7 +85,23 @@ export default function ScoreViewer() {
       const bottomY: number = last?.PositionAndShape
         ? last.PositionAndShape.AbsolutePosition.y + last.PositionAndShape.Size.height
         : topY + first.PositionAndShape.Size.height;
-      return { x, w, topY, bottomY };
+      const entryMap = new Map<number, number>(); // timestamp(rounded) -> x
+      for (const stave of staves) {
+        const staffEntries: any[] = stave?.staffEntries ?? [];
+        for (const e of staffEntries) {
+          const ts = e?.relInMeasureTimestamp?.RealValue;
+          const xRaw = e?.PositionAndShape?.AbsolutePosition?.x;
+          if (typeof ts !== "number" || typeof xRaw !== "number") continue;
+          const key = Math.round(ts * 10000) / 10000;
+          if (!entryMap.has(key)) {
+            entryMap.set(key, containerOffsetLeft + xRaw * pxPerUnit);
+          }
+        }
+      }
+      const entries: StaffEntry[] = Array.from(entryMap.entries())
+        .map(([ts, x]) => ({ timestamp: ts, x }))
+        .sort((a, b) => a.timestamp - b.timestamp);
+      return { x, w, topY, bottomY, entries };
     });
 
     // Unify bottomY per system so all measures on the same row have the same height
@@ -89,6 +123,7 @@ export default function ScoreViewer() {
           top: containerOffsetTop + d.topY * pxPerUnit,
           width: d.w * pxPerUnit,
           height: (unifiedBottom - d.topY) * pxPerUnit,
+          entries: d.entries,
         };
       })
       .filter((r): r is MeasureRect => r !== null);
@@ -313,11 +348,47 @@ export default function ScoreViewer() {
 
           if (!kind) return null;
 
+          let rectLeft = rect.left;
+          let rectWidth = rect.width;
+
+          if (kind === "passage" && passage && parsedScore) {
+            const partMeasures = parsedScore.parts[0].measures;
+            let displayLeft = rect.left;
+            let displayRight = rect.left + rect.width;
+
+            if (m === passage.startMeasure && passage.startBeat > 1) {
+              const md = partMeasures[passage.startMeasure - 1];
+              if (md) {
+                const bt = md.beatType;
+                const xPrevBeat = xForTimestamp(rect.entries, (passage.startBeat - 2) / bt);
+                const xCurrentBeat = xForTimestamp(rect.entries, (passage.startBeat - 1) / bt);
+                displayLeft = xPrevBeat != null && xCurrentBeat != null
+                  ? (xPrevBeat + xCurrentBeat) / 2
+                  : rect.left + rect.width * (passage.startBeat - 1) / md.beats;
+              }
+            }
+
+            if (m === passage.endMeasure) {
+              const md = partMeasures[passage.endMeasure - 1];
+              if (md && passage.endBeat < md.beats) {
+                const bt = md.beatType;
+                const xCurrentBeat = xForTimestamp(rect.entries, (passage.endBeat - 1) / bt);
+                const xNextBeat = xForTimestamp(rect.entries, passage.endBeat / bt);
+                displayRight = xCurrentBeat != null && xNextBeat != null
+                  ? (xCurrentBeat + xNextBeat) / 2
+                  : rect.left + rect.width * passage.endBeat / md.beats;
+              }
+            }
+
+            rectLeft = displayLeft;
+            rectWidth = displayRight - displayLeft;
+          }
+
           const styles: React.CSSProperties = {
             position: "absolute",
-            left: rect.left,
+            left: rectLeft,
             top: rect.top,
-            width: rect.width,
+            width: rectWidth,
             height: rect.height,
             borderRadius: 4,
             pointerEvents: "none",
