@@ -4,6 +4,7 @@ export interface Note {
   duration: number;
   pitch: { step: string; octave: number; alter: number } | null;
   isRest: boolean;
+  lyric?: string; // syllable text; trailing "-" added for non-final syllables
 }
 
 export interface Measure {
@@ -34,6 +35,7 @@ export interface TargetNote {
   startTime: number;
   endTime: number;
   frequency: number;
+  lyric?: string;
 }
 
 export interface Passage {

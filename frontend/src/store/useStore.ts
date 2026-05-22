@@ -38,6 +38,7 @@ interface AppState {
   analysisError: string | null;
   voiceInstrument: string;           // global preference — not score-scoped
   accompanimentInstrument: string;   // global preference — not score-scoped
+  pitchToleranceCents: number;       // global preference — ±cents for "on pitch"
   tempoScale: number;                // score-scoped; % of written tempo, 50–150
   flaggedPassages: FlaggedPassage[]; // score-scoped
 
@@ -61,6 +62,7 @@ interface AppState {
   setAnalysisError: (error: string | null) => void;
   setVoiceInstrument: (name: string) => void;
   setAccompanimentInstrument: (name: string) => void;
+  setPitchToleranceCents: (v: number) => void;
   setTempoScale: (v: number) => void;
   addFlaggedPassage: (passage: Passage) => void;
   removeFlaggedPassage: (id: string) => void;
@@ -87,6 +89,7 @@ export const useStore = create<AppState>((set) => ({
   analysisError: null,
   voiceInstrument: localStorage.getItem("voiceInstrument") ?? "choir_aahs",
   accompanimentInstrument: localStorage.getItem("accompanimentInstrument") ?? "acoustic_grand_piano",
+  pitchToleranceCents: Number(localStorage.getItem("pitchToleranceCents") ?? 50),
   tempoScale: 100,
   flaggedPassages: [],
 
@@ -122,6 +125,7 @@ export const useStore = create<AppState>((set) => ({
 
   setVoiceInstrument: (name) => { localStorage.setItem("voiceInstrument", name); set({ voiceInstrument: name }); },
   setAccompanimentInstrument: (name) => { localStorage.setItem("accompanimentInstrument", name); set({ accompanimentInstrument: name }); },
+  setPitchToleranceCents: (v) => { localStorage.setItem("pitchToleranceCents", String(v)); set({ pitchToleranceCents: v }); },
 
   setTempoScale: (v) => set((s) => {
     saveScored(s.scoreId, "tempoScale", v);

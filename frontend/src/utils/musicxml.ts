@@ -84,12 +84,24 @@ export function parseScore(xmlString: string): ParsedScore {
                 }
               : null;
 
+            // Lyric: prefer lyric number="1" (primary language) over others
+            let lyric: string | undefined;
+            const lyricEl = noteEl.querySelector('lyric[number="1"]') ?? noteEl.querySelector("lyric");
+            if (lyricEl) {
+              const text = lyricEl.querySelector("text")?.textContent?.trim();
+              if (text) {
+                const syllabic = lyricEl.querySelector("syllabic")?.textContent?.trim();
+                lyric = (syllabic === "begin" || syllabic === "middle") ? text + "-" : text;
+              }
+            }
+
             notes.push({
               measureNumber: number,
               beatPosition,
               duration: duration / divisions,
               pitch,
               isRest,
+              lyric,
             });
           }
         }

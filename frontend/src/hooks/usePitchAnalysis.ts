@@ -32,6 +32,7 @@ export function usePitchAnalysis() {
           startTime: startSec - passageStart,
           endTime: startSec - passageStart + durationSec,
           frequency: freq,
+          lyric: note.lyric,
         });
       }
     }

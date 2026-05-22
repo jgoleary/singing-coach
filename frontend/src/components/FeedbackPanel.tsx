@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, useMemo } from "react";
 import { useStore } from "../store/useStore";
+import { useAudioEngine } from "../hooks/useAudioEngine";
 import { computeStats } from "../utils/stats";
 
 function formatTime(s: number) {
@@ -37,6 +38,11 @@ export default function FeedbackPanel() {
   const octaveDown = useStore((s) => s.octaveDown);
   const analysisStatus = useStore((s) => s.analysisStatus);
   const analysisError = useStore((s) => s.analysisError);
+  const pitchToleranceCents = useStore((s) => s.pitchToleranceCents);
+  const setPitchToleranceCents = useStore((s) => s.setPitchToleranceCents);
+
+  const { playAccompanimentOnly, stop: stopAccompaniment } = useAudioEngine();
+  const playAccompaniment = useStore((s) => s.playAccompaniment);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const urlRef = useRef<string | null>(null);
@@ -68,13 +74,20 @@ export default function FeedbackPanel() {
   const displayTargetNotes = octaveDown && targetNotes
     ? targetNotes.map((note) => ({ ...note, frequency: note.frequency / 2 }))
     : targetNotes;
-  const stats = pitchData && displayTargetNotes ? computeStats(pitchData, displayTargetNotes) : null;
+  const stats = pitchData && displayTargetNotes ? computeStats(pitchData, displayTargetNotes, pitchToleranceCents) : null;
   const progress = duration > 0 ? currentTime / duration : 0;
 
   function handlePlayToggle() {
     const audio = audioRef.current;
     if (!audio) return;
-    isPlayingAudio ? audio.pause() : audio.play();
+    if (isPlayingAudio) {
+      audio.pause();
+      stopAccompaniment();
+    } else {
+      audio.currentTime = 0;
+      audio.play();
+      if (playAccompaniment) playAccompanimentOnly();
+    }
   }
 
   return (
@@ -86,7 +99,7 @@ export default function FeedbackPanel() {
         onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
         onPlay={() => setIsPlayingAudio(true)}
         onPause={() => setIsPlayingAudio(false)}
-        onEnded={() => { setIsPlayingAudio(false); setCurrentTime(0); }}
+        onEnded={() => { setIsPlayingAudio(false); setCurrentTime(0); stopAccompaniment(); }}
       />
 
       {/* Section title + take pill */}
@@ -135,7 +148,7 @@ export default function FeedbackPanel() {
             Play my recording
           </div>
           <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--sidebar-ink-3)", lineHeight: 1.3 }}>
-            {formatTime(currentTime)} / {duration > 0 ? formatTime(duration) : "--:--"}
+            {formatTime(currentTime)} / {duration > 0 && isFinite(duration) ? formatTime(duration) : "--:--"}
           </div>
         </div>
       </div>
@@ -155,12 +168,40 @@ export default function FeedbackPanel() {
         </div>
       )}
 
+      {/* Tolerance selector */}
+      {stats && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginTop: 10, padding: "6px 0", borderTop: "1px solid var(--sidebar-line-soft)",
+        }}>
+          <span style={{ fontSize: 11.5, color: "var(--sidebar-ink-3)" }}>Tolerance</span>
+          <div style={{ display: "flex", gap: 3 }}>
+            {[25, 50, 100].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setPitchToleranceCents(v)}
+                style={{
+                  padding: "2px 7px", borderRadius: 5, fontSize: 10.5,
+                  fontFamily: "var(--font-mono)", cursor: "pointer",
+                  border: `1px solid ${pitchToleranceCents === v ? "var(--accent)" : "var(--sidebar-line)"}`,
+                  background: pitchToleranceCents === v ? "var(--accent-soft)" : "transparent",
+                  color: pitchToleranceCents === v ? "var(--accent)" : "var(--sidebar-ink-3)",
+                }}
+              >
+                ±{v}¢
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Compact stat rows */}
       {stats && (
-        <div style={{ marginTop: 10 }}>
+        <div>
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
-            padding: "7px 0",
+            padding: "7px 0", borderTop: "1px solid var(--sidebar-line-soft)",
           }}>
             <span style={{ fontSize: 11.5, color: "var(--sidebar-ink-3)" }}>Median pitch error</span>
             <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", fontWeight: 500, color: "var(--sidebar-ink-1)" }}>

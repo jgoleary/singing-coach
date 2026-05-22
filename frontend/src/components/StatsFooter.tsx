@@ -41,7 +41,7 @@ export default function StatsFooter({
   isPitchActive: boolean;
   onSwitchToPitch: () => void;
 }) {
-  const { lastRecordingBlob, pitchData, targetNotes, octaveDown, takeNumber, lastRecordingAt } =
+  const { lastRecordingBlob, pitchData, targetNotes, octaveDown, takeNumber, lastRecordingAt, pitchToleranceCents } =
     useStore();
 
   if (!lastRecordingBlob) return null;
@@ -51,7 +51,7 @@ export default function StatsFooter({
       ? targetNotes.map((n) => ({ ...n, frequency: n.frequency / 2 }))
       : targetNotes;
   const stats =
-    pitchData && displayTargetNotes ? computeStats(pitchData, displayTargetNotes) : null;
+    pitchData && displayTargetNotes ? computeStats(pitchData, displayTargetNotes, pitchToleranceCents) : null;
 
   return (
     <div

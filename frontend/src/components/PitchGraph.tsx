@@ -13,8 +13,6 @@ import { useStore } from "../store/useStore";
 import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
-// ±25¢ band around each target note
-const BAND_RATIO = Math.pow(2, 25 / 1200);
 
 function buildTargetData(targetNotes: TargetNote[], duration: number) {
   const points: { time: number; target: number | null }[] = [];
@@ -77,6 +75,8 @@ export default function PitchGraph() {
   const analysisError = useStore((s) => s.analysisError);
   const parsedScore = useStore((s) => s.parsedScore);
   const passage = useStore((s) => s.passage);
+  const pitchToleranceCents = useStore((s) => s.pitchToleranceCents);
+  const bandRatio = Math.pow(2, pitchToleranceCents / 1200);
 
   if (analysisStatus === "analyzing") {
     return <div style={centeredStyle}>Analyzing recording…</div>;
@@ -100,8 +100,12 @@ export default function PitchGraph() {
   const duration = Math.max(pitchDuration, targetDuration);
   const data = buildChartData(pitchData, displayTargetNotes, duration);
 
+  // Y domain: use only high-confidence frames so wrong-octave noise doesn't inflate the axis
+  const confidentFreqs = pitchData
+    .filter((f) => f.confidence >= 0.65)
+    .map((f) => f.frequency);
   const allFreqs = [
-    ...pitchData.map((f) => f.frequency),
+    ...confidentFreqs,
     ...displayTargetNotes.map((n) => n.frequency),
   ].filter(Boolean);
 
@@ -113,8 +117,14 @@ export default function PitchGraph() {
     );
   }
 
-  const minFreq = Math.max(80, Math.min(...allFreqs) * 0.7);
-  const maxFreq = Math.min(2000, Math.max(...allFreqs) * 1.3);
+  const minFreq = Math.max(80, Math.min(...allFreqs) * 0.85);
+  const maxFreq = Math.min(2000, Math.max(...allFreqs) * 1.15);
+
+  // X domain: clip to where target notes actually exist, plus a small margin
+  const targetStart = Math.min(...displayTargetNotes.map((n) => n.startTime));
+  const targetEnd = Math.max(...displayTargetNotes.map((n) => n.endTime));
+  const xMin = Math.max(0, targetStart - 0.5);
+  const xMax = Math.min(duration, targetEnd + 0.5);
   const visibleTicks = NOTE_TICKS.filter((t) => t.freq >= minFreq && t.freq <= maxFreq);
 
   // Measure boundary times relative to passage start
@@ -142,7 +152,7 @@ export default function PitchGraph() {
           <XAxis
             dataKey="time"
             type="number"
-            domain={[0, duration]}
+            domain={[xMin, xMax]}
             tickFormatter={(v: number) => `${v.toFixed(1)}s`}
             stroke="var(--line)"
             tick={{ fill: "var(--ink-4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
@@ -197,8 +207,8 @@ export default function PitchGraph() {
               key={i}
               x1={note.startTime}
               x2={note.endTime}
-              y1={note.frequency / BAND_RATIO}
-              y2={note.frequency * BAND_RATIO}
+              y1={note.frequency / bandRatio}
+              y2={note.frequency * bandRatio}
               fill="var(--target)"
               fillOpacity={0.22}
               stroke="none"
@@ -208,6 +218,27 @@ export default function PitchGraph() {
                 fontSize: 8.5,
                 fill: "var(--target)",
                 fontFamily: "var(--font-mono)",
+              }}
+            />
+          ))}
+
+          {/* Lyric syllables — full-height invisible ReferenceArea so the label
+              has the full chart y-range as its viewBox and insideBottomLeft works */}
+          {displayTargetNotes.filter((n) => n.lyric).map((note, i) => (
+            <ReferenceArea
+              key={`lyric-${i}`}
+              x1={note.startTime}
+              x2={note.endTime}
+              y1={minFreq}
+              y2={maxFreq}
+              fill="none"
+              stroke="none"
+              label={{
+                value: note.lyric,
+                position: "insideBottomLeft",
+                fontSize: 10,
+                fill: "oklch(0.34 0.013 60)",
+                fontStyle: "italic",
               }}
             />
           ))}
@@ -245,6 +276,7 @@ export default function PitchGraph() {
             isAnimationActive={false}
             name="voiceFaint"
           />
+
         </ComposedChart>
       </ResponsiveContainer>
     </div>

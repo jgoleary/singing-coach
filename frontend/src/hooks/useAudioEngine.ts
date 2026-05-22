@@ -201,5 +201,41 @@ export function useAudioEngine() {
     useStore.getState().setIsPlaying(false);
   }, []);
 
-  return { play, stop };
+  // Plays only the accompaniment — used during recording playback so the user
+  // hears their voice recording alongside the synth accompaniment in sync.
+  const playAccompanimentOnly = useCallback(async (onEnd?: () => void) => {
+    const state = useStore.getState();
+    const score = state.parsedScore;
+    if (!score || !state.accompanimentPartId || !state.playAccompaniment) {
+      onEnd?.();
+      return;
+    }
+    const bounds = getPassageBounds();
+    if (!bounds) { onEnd?.(); return; }
+
+    await Tone.start();
+    Tone.getTransport().cancel();
+    Tone.getTransport().stop();
+    Tone.getTransport().position = 0;
+
+    if (instrumentsRef.current["piano_name"] !== state.accompanimentInstrument) {
+      instrumentsRef.current["piano"] = await getPlayableInstrument(state.accompanimentInstrument);
+      instrumentsRef.current["piano_name"] = state.accompanimentInstrument;
+    }
+
+    const tempo = score.tempo * (state.tempoScale / 100);
+    const accompPart = score.parts.find((p) => p.id === state.accompanimentPartId);
+    if (accompPart) {
+      await schedulePartNotes(accompPart, instrumentsRef.current["piano"], bounds.start, bounds.end, score, tempo);
+    }
+
+    Tone.getTransport().schedule(() => {
+      Tone.getTransport().stop();
+      onEnd?.();
+    }, bounds.duration);
+
+    Tone.getTransport().start();
+  }, [getPassageBounds, schedulePartNotes]);
+
+  return { play, stop, playAccompanimentOnly };
 }
