@@ -1,22 +1,8 @@
 import { useRef } from "react";
 import { useStore } from "../store/useStore";
 import { loadFile, parseScore } from "../utils/musicxml";
+import { saveToLibrary } from "../utils/scoreLibrary";
 import type { Part } from "../types";
-
-const STORAGE_KEY = "singing-coach:score";
-
-export function saveScoreToStorage(xml: string, fileName: string, voicePartId: string | null, accompanimentPartId: string | null) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ xml, fileName, voicePartId, accompanimentPartId }));
-  } catch { /* storage full */ }
-}
-
-export function loadScoreFromStorage(): { xml: string; fileName: string; voicePartId: string | null; accompanimentPartId: string | null } | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
 
 declare global {
   interface Window { __lastLoadedXml?: string; }
@@ -40,8 +26,8 @@ export default function FileLoader() {
     setParsedScore(score);
     setVoicePartId(voiceId);
     setAccompanimentPartId(accompId);
-    saveScoreToStorage(xml, file.name, voiceId, accompId);
-    // reset so same file can be re-selected
+    saveToLibrary(file.name, xml, voiceId, accompId);
+    useStore.getState().loadScoreSettings(file.name);
     e.target.value = "";
   }
 

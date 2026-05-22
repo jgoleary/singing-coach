@@ -1,5 +1,7 @@
+import { useState, useEffect, useRef } from "react";
 import { useStore } from "../store/useStore";
-import { loadScoreFromStorage, saveScoreToStorage } from "./FileLoader";
+import { parseScore } from "../utils/musicxml";
+import { getLibrary, loadFromLibrary, updateMeta, setActiveFilename, scoreTitle } from "../utils/scoreLibrary";
 
 function openFilePicker() {
   (document.getElementById("file-input-trigger") as HTMLInputElement | null)?.click();
@@ -19,22 +21,52 @@ const FileIcon = () => (
 );
 
 export default function Toolbar() {
-  const { parsedScore, voicePartId, accompanimentPartId, setVoicePartId, setAccompanimentPartId } = useStore();
-  const stored = loadScoreFromStorage();
-  const fileName = stored?.fileName ?? "";
-  const pieceTitle = fileName.replace(/\.(mxl|xml|musicxml)$/i, "").replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).trim();
+  const { parsedScore, scoreId, voicePartId, accompanimentPartId, setVoicePartId, setAccompanimentPartId } = useStore();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [library, setLibrary] = useState<string[]>([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const currentTitle = scoreId ? scoreTitle(scoreId) : "";
   const parts = parsedScore?.parts ?? [];
+
+  // Refresh library list when dropdown opens
+  useEffect(() => {
+    if (dropdownOpen) setLibrary(getLibrary());
+  }, [dropdownOpen]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (!dropdownRef.current?.contains(e.target as Node)) setDropdownOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [dropdownOpen]);
+
+  function switchToScore(filename: string) {
+    setDropdownOpen(false);
+    const saved = loadFromLibrary(filename);
+    if (!saved) return;
+    try {
+      const score = parseScore(saved.xml);
+      window.__lastLoadedXml = saved.xml;
+      setActiveFilename(filename);
+      useStore.getState().setParsedScore(score);
+      useStore.getState().setVoicePartId(saved.voicePartId);
+      useStore.getState().setAccompanimentPartId(saved.accompanimentPartId);
+      useStore.getState().loadScoreSettings(filename);
+    } catch { /* malformed stored XML */ }
+  }
 
   function handleVoiceChange(id: string | null) {
     setVoicePartId(id);
-    const xml = window.__lastLoadedXml;
-    if (xml) saveScoreToStorage(xml, fileName, id, useStore.getState().accompanimentPartId);
+    if (scoreId) updateMeta(scoreId, id, useStore.getState().accompanimentPartId);
   }
 
   function handleAccompChange(id: string | null) {
     setAccompanimentPartId(id);
-    const xml = window.__lastLoadedXml;
-    if (xml) saveScoreToStorage(xml, fileName, useStore.getState().voicePartId, id);
+    if (scoreId) updateMeta(scoreId, useStore.getState().voicePartId, id);
   }
 
   const voiceName = parts.find((p) => p.id === voicePartId)?.name ?? "None";
@@ -62,36 +94,89 @@ export default function Toolbar() {
 
         <div style={{ width: 1, height: 16, background: "var(--line)", marginInline: 6 }} />
 
-        {/* File pill */}
-        <button
-          onClick={openFilePicker}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "5px 10px 5px 8px", borderRadius: 7,
-            background: "var(--surface-2)", border: "1px solid var(--line)",
-            fontSize: 12.5, fontWeight: 500, color: "var(--ink-2)",
-            cursor: "pointer", maxWidth: 220, transition: "border-color 0.15s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--line-bright)")}
-          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--line)")}
-        >
-          <span style={{ color: "var(--ink-3)", flexShrink: 0 }}><FileIcon /></span>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {fileName || "Load a score…"}
-          </span>
-          <span style={{ color: "var(--ink-4)", flexShrink: 0 }}><ChevDown /></span>
-        </button>
+        {/* File pill with library dropdown */}
+        <div ref={dropdownRef} style={{ position: "relative" }}>
+          <button
+            onClick={() => setDropdownOpen((o) => !o)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "5px 10px 5px 8px", borderRadius: 7,
+              background: dropdownOpen ? "var(--surface-3)" : "var(--surface-2)",
+              border: `1px solid ${dropdownOpen ? "var(--line-bright)" : "var(--line)"}`,
+              fontSize: 12.5, fontWeight: 500, color: "var(--ink-2)",
+              cursor: "pointer", maxWidth: 220,
+            }}
+          >
+            <span style={{ color: "var(--ink-3)", flexShrink: 0 }}><FileIcon /></span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {currentTitle || "Load a score…"}
+            </span>
+            <span style={{ color: "var(--ink-4)", flexShrink: 0 }}><ChevDown /></span>
+          </button>
+
+          {dropdownOpen && (
+            <div style={{
+              position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 100,
+              minWidth: 200, maxWidth: 280,
+              background: "var(--surface-3)", border: "1px solid var(--line)",
+              borderRadius: 10, boxShadow: "0 4px 16px oklch(0.2 0 0 / 0.12)",
+              overflow: "hidden",
+            }}>
+              {library.length > 0 && (
+                <>
+                  <div style={{
+                    padding: "8px 12px 4px",
+                    fontSize: 10, fontWeight: 500, textTransform: "uppercase",
+                    letterSpacing: "0.1em", color: "var(--ink-4)",
+                  }}>Your scores</div>
+                  {library.map((filename) => (
+                    <button
+                      key={filename}
+                      type="button"
+                      onClick={() => switchToScore(filename)}
+                      style={{
+                        display: "block", width: "100%", textAlign: "left",
+                        padding: "7px 12px", border: "none", background: "transparent",
+                        fontSize: 13, color: filename === scoreId ? "var(--accent)" : "var(--ink-1)",
+                        fontWeight: filename === scoreId ? 500 : 400,
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      {scoreTitle(filename)}
+                    </button>
+                  ))}
+                  <div style={{ height: 1, background: "var(--line)", margin: "4px 0" }} />
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { setDropdownOpen(false); openFilePicker(); }}
+                style={{
+                  display: "block", width: "100%", textAlign: "left",
+                  padding: "7px 12px", border: "none", background: "transparent",
+                  fontSize: 13, color: "var(--ink-2)", cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                Import new score…
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Center: piece title ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 0, padding: "0 20px" }}>
-        {pieceTitle ? (
+        {currentTitle ? (
           <>
             <div style={{
               fontFamily: "var(--font-display)", fontStyle: "italic",
               fontSize: 17, fontWeight: 500, color: "var(--ink-1)",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%",
-            }}>{pieceTitle}</div>
+            }}>{currentTitle}</div>
             {parsedScore && (
               <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 1, fontFamily: "var(--font-sans)" }}>
                 ♩ = {parsedScore.tempo}
@@ -110,7 +195,6 @@ export default function Toolbar() {
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
           <span style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", marginRight: 2 }}>Parts</span>
 
-          {/* Voice chip */}
           <div style={{ position: "relative" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5,
@@ -125,9 +209,7 @@ export default function Toolbar() {
               <select
                 value={voicePartId ?? ""}
                 onChange={(e) => handleVoiceChange(e.target.value || null)}
-                style={{
-                  position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%",
-                }}
+                style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }}
               >
                 <option value="">— none —</option>
                 {parts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -135,7 +217,6 @@ export default function Toolbar() {
             </div>
           </div>
 
-          {/* Accompaniment chip */}
           <div style={{ position: "relative" }}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 5,
@@ -150,9 +231,7 @@ export default function Toolbar() {
               <select
                 value={accompanimentPartId ?? ""}
                 onChange={(e) => handleAccompChange(e.target.value || null)}
-                style={{
-                  position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%",
-                }}
+                style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }}
               >
                 <option value="">— none —</option>
                 {parts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}

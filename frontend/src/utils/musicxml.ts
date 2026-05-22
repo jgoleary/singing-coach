@@ -51,35 +51,48 @@ export function parseScore(xmlString: string): ParsedScore {
 
         let currentDurationInDivisions = 0;
         let lastNonChordDivisions = 0;
-        const notes: Note[] = Array.from(measureEl.querySelectorAll("note")).map((noteEl) => {
-          const isRest = !!noteEl.querySelector("rest");
-          const isChord = !!noteEl.querySelector("chord");
-          const duration = parseInt(noteEl.querySelector("duration")?.textContent ?? "1");
-          const beatPosition = isChord
-            ? 1 + lastNonChordDivisions / divisions
-            : 1 + currentDurationInDivisions / divisions;
-          if (!isChord) {
-            lastNonChordDivisions = currentDurationInDivisions;
-            currentDurationInDivisions += duration;
+        const notes: Note[] = [];
+
+        // Walk direct children so <backup> and <forward> elements reset the
+        // time cursor correctly (needed for multi-staff parts like piano).
+        for (const child of Array.from(measureEl.children)) {
+          if (child.tagName === "backup") {
+            const d = parseInt(child.querySelector("duration")?.textContent ?? "0");
+            currentDurationInDivisions = Math.max(0, currentDurationInDivisions - d);
+          } else if (child.tagName === "forward") {
+            const d = parseInt(child.querySelector("duration")?.textContent ?? "0");
+            currentDurationInDivisions += d;
+          } else if (child.tagName === "note") {
+            const noteEl = child;
+            const isRest = !!noteEl.querySelector("rest");
+            const isChord = !!noteEl.querySelector("chord");
+            const duration = parseInt(noteEl.querySelector("duration")?.textContent ?? "1");
+            const beatPosition = isChord
+              ? 1 + lastNonChordDivisions / divisions
+              : 1 + currentDurationInDivisions / divisions;
+            if (!isChord) {
+              lastNonChordDivisions = currentDurationInDivisions;
+              currentDurationInDivisions += duration;
+            }
+
+            const pitchEl = noteEl.querySelector("pitch");
+            const pitch = pitchEl
+              ? {
+                  step: pitchEl.querySelector("step")!.textContent!,
+                  octave: parseInt(pitchEl.querySelector("octave")!.textContent!),
+                  alter: parseFloat(pitchEl.querySelector("alter")?.textContent ?? "0"),
+                }
+              : null;
+
+            notes.push({
+              measureNumber: number,
+              beatPosition,
+              duration: duration / divisions,
+              pitch,
+              isRest,
+            });
           }
-
-          const pitchEl = noteEl.querySelector("pitch");
-          const pitch = pitchEl
-            ? {
-                step: pitchEl.querySelector("step")!.textContent!,
-                octave: parseInt(pitchEl.querySelector("octave")!.textContent!),
-                alter: parseFloat(pitchEl.querySelector("alter")?.textContent ?? "0"),
-              }
-            : null;
-
-          return {
-            measureNumber: number,
-            beatPosition,
-            duration: duration / divisions,
-            pitch,
-            isRest,
-          };
-        });
+        }
 
         return { number, beats, beatType, notes };
       }

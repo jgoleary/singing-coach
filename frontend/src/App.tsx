@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "./store/useStore";
 import Toolbar from "./components/Toolbar";
-import FileLoader, { loadScoreFromStorage } from "./components/FileLoader";
+import FileLoader from "./components/FileLoader";
 import ScoreViewer from "./components/ScoreViewer";
 import PitchGraph from "./components/PitchGraph";
 import PassageSelector from "./components/PassageSelector";
@@ -11,6 +11,7 @@ import RecordButton from "./components/RecordButton";
 import FeedbackPanel from "./components/FeedbackPanel";
 import StatsFooter from "./components/StatsFooter";
 import { parseScore } from "./utils/musicxml";
+import { getActiveFilename, loadFromLibrary } from "./utils/scoreLibrary";
 
 type Tab = "score" | "pitch";
 
@@ -91,9 +92,11 @@ export default function App() {
   const { lastRecordingBlob, pitchData, targetNotes, analysisStatus } = useStore();
   const takeNumber = useStore((s) => s.takeNumber);
 
-  // Restore last score on mount
+  // Restore last active score on mount
   useEffect(() => {
-    const saved = loadScoreFromStorage();
+    const filename = getActiveFilename();
+    if (!filename) return;
+    const saved = loadFromLibrary(filename);
     if (!saved) return;
     try {
       const score = parseScore(saved.xml);
@@ -101,6 +104,7 @@ export default function App() {
       useStore.getState().setParsedScore(score);
       useStore.getState().setVoicePartId(saved.voicePartId);
       useStore.getState().setAccompanimentPartId(saved.accompanimentPartId);
+      useStore.getState().loadScoreSettings(filename);
     } catch { /* malformed stored XML */ }
   }, []);
 
