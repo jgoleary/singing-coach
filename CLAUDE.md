@@ -26,6 +26,7 @@ A personal singing practice tool. The user loads a MusicXML file, selects a pass
 
 ### Communication
 - Frontend records mic audio as WebM/Opus blob (Chrome MediaRecorder) via Web Audio API
+- `getUserMedia` requests `{ echoCancellation: false, noiseSuppression: false, autoGainControl: false }` — raw audio, no browser DSP
 - POST to `/analyze-pitch` (multipart form)
 - Backend decodes audio (soundfile first, PyAV fallback for WebM), runs CREPE, returns JSON
 - Frontend stores `PitchFrame[]` and computes `TargetNote[]` client-side from voice part
@@ -35,6 +36,7 @@ A personal singing practice tool. The user loads a MusicXML file, selects a pass
 ```
 singing-coach/
 ├── CLAUDE.md
+├── README.md
 ├── pytest.ini                    # asyncio_mode = auto
 ├── die-lotosblume.mxl            # sample MusicXML file
 ├── frontend/
@@ -52,6 +54,7 @@ singing-coach/
 │       │   ├── FileLoader.tsx
 │       │   ├── ScoreViewer.tsx
 │       │   ├── PassageSelector.tsx
+│       │   ├── FlaggedPassages.tsx
 │       │   ├── TransportControls.tsx
 │       │   ├── RecordButton.tsx
 │       │   ├── FeedbackPanel.tsx
@@ -103,22 +106,36 @@ interface AppState {
   playAccompaniment: boolean;
   isPlaying: boolean;
   octaveDown: boolean;               // graph display only — does NOT affect synthesis pitch
+  tempoScale: number;                // % of score tempo (50–150); persisted to localStorage
   isRecording: boolean;
   lastRecordingBlob: Blob | null;
   pitchData: PitchFrame[] | null;    // from backend
   targetNotes: TargetNote[] | null;  // computed client-side from voice part, NOT octave-shifted
   analysisStatus: "idle" | "analyzing" | "done" | "error";
   analysisError: string | null;
+  voiceInstrument: string;
+  accompanimentInstrument: string;
+  flaggedPassages: FlaggedPassage[]; // persisted to localStorage
 }
+
+type FlaggedPassage = { id: string; passage: Passage };
 ```
 
 ## Key Implementation Notes
+
+### Passage Selection
+- Passages can be set via the **PassageSelector steppers** (measure + beat) or by **clicking two measures on the score**
+- Score click: first click sets anchor (orange highlight), hover previews range, second click confirms (blue highlight); Esc cancels
+- Highlight boxes span full measures — OSMD measure bounding boxes from `GraphicSheet.MeasureList`, height unified per system so all measures on the same row match
+- Beat steppers use whole-beat increments; PassageSelector syncs its local stepper state from `store.passage` via `useEffect` so clicks and steppers stay in sync
+- **Saved passages**: ⚑ button flags current passage; `FlaggedPassages` component lists them; click to restore; persisted to localStorage
 
 ### Passage Timing
 - `beatsToSeconds(measure, beat, tempo, timeSig)` converts 1-indexed beat positions to absolute seconds
 - **beatType is respected**: `secondsPerBeat = (60 / tempo) * (4 / timeSig.beatType)` — correct for 6/8, 3/4, 2/2 etc.
 - **Passage end is inclusive**: internally `endBeat + 1` is used so notes starting on the end beat are included
 - **Chord handling**: `<chord/>` notes do not advance the beat position counter
+- **Tempo scaling**: `effectiveTempo = score.tempo * tempoScale / 100` — applied in both `useAudioEngine` and `usePitchAnalysis` so the pitch graph aligns with what was played
 
 ### Audio Engine (useAudioEngine.ts)
 - Instruments loaded via `soundfont-player` using `Tone.getContext().rawContext` as the AudioContext
@@ -133,14 +150,15 @@ interface AppState {
 - Sets `analysisStatus` to "analyzing" immediately (PitchGraph shows spinner)
 
 ### Pitch Graph (PitchGraph.tsx)
-- **Blue stepped line** (`#60a5fa`): target notes, built at 10ms resolution; octaveDown halves frequencies at render time
-- **Amber solid line** (`#fbbf24`): voiced frames (confidence ≥ 0.5)
-- **Amber faint line** (opacity 0.2): low-confidence frames
+- **Blue stepped line**: target notes, built at 10ms resolution; octaveDown halves frequencies at render time
+- **Amber solid line**: voiced frames (confidence ≥ 0.65)
+- **Amber faint line** (opacity 0.2): low-confidence frames (0 < confidence < 0.65)
 - Shows "Analyzing..." and error states via `analysisStatus`
 
 ### MusicXML / OSMD Bridge
 - Raw XML stored in `window.__lastLoadedXml` by `FileLoader` so `ScoreViewer` can pass it to OSMD
 - OSMD instance exposed as `window.__osmd` for cursor control in `useAudioEngine`
+- `ScoreViewer` and `PitchRegion` are both kept mounted in the DOM; tab switching uses `display: none` to preserve scroll position and OSMD state
 
 ## Backend
 
@@ -158,12 +176,15 @@ interface AppState {
 
 **CORS:** allows all `http://localhost:*` origins via regex (`allow_origin_regex`).
 
-**Audio decoding in pitch_analyzer.py:**
+**Audio decoding and post-processing in pitch_analyzer.py:**
 1. Try `soundfile.read()` (WAV, FLAC, AIFF)
 2. On failure, fall back to PyAV (`av.open()`) — handles WebM/Opus from Chrome
 3. Downmix stereo to mono by averaging channels
-4. Run `crepe.predict(audio, sr, viterbi=True, step_size=10, verbose=0)`
-5. Filter out frames where `frequency == 0`
+4. Run `crepe.predict(audio, sr, model_capacity="small", viterbi=True, step_size=10, verbose=0)`
+5. Post-process via `_post_process()`:
+   - **Frequency gate**: drop frames outside 80–1050 Hz
+   - **Min voiced segment**: drop voiced runs (confidence ≥ 0.5) shorter than 100 ms — eliminates background noise blips and onset spikes
+   - **Smoothness constraint**: reject voiced frames that jump > 12 semitones from the previous accepted frame within a 200 ms window
 6. 50 MB file size limit enforced at the API layer
 
 ## Development Startup
@@ -186,7 +207,7 @@ npm run dev
 ```bash
 # Backend (from repo root)
 backend/venv312/bin/pytest backend/tests/ -v
-# CREPE model downloads ~10MB on first run
+# CREPE model downloads on first run
 
 # Frontend (MUST run from frontend/ directory)
 cd frontend
@@ -195,9 +216,9 @@ npx vitest run
 
 ## Known Constraints
 
-- **Headphones required** during recording — no AEC attempted, just UI warning
+- **Headphones required** during recording — browser DSP is disabled (`autoGainControl`, `noiseSuppression`, `echoCancellation` all false), so feedback will be heard without headphones
 - **Chrome only** — MediaRecorder produces WebM/Opus; PyAV decodes it without system ffmpeg
-- **CREPE model**: ~10MB TensorFlow model downloaded on first run, cached thereafter
+- **CREPE model**: TensorFlow model downloaded on first run, cached thereafter (`model_capacity="small"`)
 - **Soundfont CDN**: `choir_aahs` and `acoustic_grand_piano` loaded from jsDelivr; PolySynth fallback if offline
 - **OSMD cursor sync**: approximate (16th-note poll), visual drift is expected
 - **Tests run from `frontend/`**: vitest picks up `vite.config.ts` relative to CWD — running from repo root uses wrong environment
