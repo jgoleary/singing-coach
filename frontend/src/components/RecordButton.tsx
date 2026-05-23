@@ -16,7 +16,7 @@ function IconHeadphones() {
 }
 
 export default function RecordButton() {
-  const { parsedScore, passage, isRecording } = useStore();
+  const { parsedScore, passage, isRecording, tempoScale } = useStore();
   const { play, stop: stopPlayback } = useAudioEngine();
   const { start: startRecording, stop: stopRecording } = useMicRecorder();
   const { analyze } = usePitchAnalysis();
@@ -24,15 +24,16 @@ export default function RecordButton() {
   function getPassageDurationMs(): number {
     const score = parsedScore;
     if (!score) return 0;
+    const effectiveTempo = score.tempo * (tempoScale / 100);
     if (!passage) {
       const last = score.parts[0]?.measures.at(-1);
       if (!last) return 0;
-      const end = beatsToSeconds(last.number, last.beats + 1, score.tempo, last);
+      const end = beatsToSeconds(last.number, last.beats + 1, effectiveTempo, last);
       return end * 1000;
     }
     const allMeasures = score.parts[0]?.measures ?? [];
-    const startSec = beatsToSeconds(passage.startMeasure, passage.startBeat, score.tempo, allMeasures[0]);
-    const endSec = beatsToSeconds(passage.endMeasure, passage.endBeat + 1, score.tempo, allMeasures.at(-1)!);
+    const startSec = beatsToSeconds(passage.startMeasure, passage.startBeat, effectiveTempo, allMeasures[0]);
+    const endSec = beatsToSeconds(passage.endMeasure, passage.endBeat + 1, effectiveTempo, allMeasures.at(-1)!);
     return (endSec - startSec) * 1000;
   }
 
