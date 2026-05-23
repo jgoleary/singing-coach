@@ -334,25 +334,46 @@ export default function ScoreViewer() {
 
         <div ref={containerRef} style={{ width: "100%" }} />
 
-        {/* Measure highlight overlays */}
-        {measureRects.map((rect, i) => {
+        {/* Anchor / range overlays (during click selection) */}
+        {anchorMeasure !== null && measureRects.map((rect, i) => {
           const m = i + 1;
-          let kind: "anchor" | "range" | "passage" | null = null;
-
-          if (anchorMeasure !== null) {
-            if (m === anchorMeasure) kind = "anchor";
-            else if (lo !== null && hi !== null && m >= lo && m <= hi) kind = "range";
-          } else if (passage && m >= passage.startMeasure && m <= passage.endMeasure) {
-            kind = "passage";
-          }
-
+          let kind: "anchor" | "range" | null = null;
+          if (m === anchorMeasure) kind = "anchor";
+          else if (lo !== null && hi !== null && m >= lo && m <= hi) kind = "range";
           if (!kind) return null;
 
-          let rectLeft = rect.left;
-          let rectWidth = rect.width;
+          const styles: React.CSSProperties = {
+            position: "absolute",
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+            borderRadius: 4,
+            pointerEvents: "none",
+            boxSizing: "border-box",
+            ...(kind === "anchor" && {
+              background: "oklch(0.50 0.16 32 / 0.13)",
+              border: "2px solid oklch(0.50 0.16 32 / 0.55)",
+            }),
+            ...(kind === "range" && {
+              background: "oklch(0.42 0.13 245 / 0.08)",
+              border: "1.5px dashed oklch(0.42 0.13 245 / 0.40)",
+            }),
+          };
 
-          if (kind === "passage" && passage && parsedScore) {
-            const partMeasures = parsedScore.parts[0].measures;
+          return <div key={i} style={styles} />;
+        })}
+
+        {/* Passage overlay — one merged rectangle per system row */}
+        {anchorMeasure === null && passage && parsedScore && (() => {
+          const partMeasures = parsedScore.parts[0].measures;
+          type Row = { left: number; right: number; top: number; height: number };
+          const rows = new Map<number, Row>();
+
+          for (let m = passage.startMeasure; m <= passage.endMeasure; m++) {
+            const rect = measureRects[m - 1];
+            if (!rect) continue;
+
             let displayLeft = rect.left;
             let displayRight = rect.left + rect.width;
 
@@ -380,35 +401,32 @@ export default function ScoreViewer() {
               }
             }
 
-            rectLeft = displayLeft;
-            rectWidth = displayRight - displayLeft;
+            const key = Math.round(rect.top * 10);
+            const existing = rows.get(key);
+            if (existing) {
+              existing.left = Math.min(existing.left, displayLeft);
+              existing.right = Math.max(existing.right, displayRight);
+              existing.height = Math.max(existing.height, rect.height);
+            } else {
+              rows.set(key, { left: displayLeft, right: displayRight, top: rect.top, height: rect.height });
+            }
           }
 
-          const styles: React.CSSProperties = {
-            position: "absolute",
-            left: rectLeft,
-            top: rect.top,
-            width: rectWidth,
-            height: rect.height,
-            borderRadius: 4,
-            pointerEvents: "none",
-            boxSizing: "border-box",
-            ...(kind === "anchor" && {
-              background: "oklch(0.50 0.16 32 / 0.13)",
-              border: "2px solid oklch(0.50 0.16 32 / 0.55)",
-            }),
-            ...(kind === "range" && {
-              background: "oklch(0.42 0.13 245 / 0.08)",
-              border: "1.5px dashed oklch(0.42 0.13 245 / 0.40)",
-            }),
-            ...(kind === "passage" && {
+          return Array.from(rows.values()).map((r, i) => (
+            <div key={`passage-${i}`} style={{
+              position: "absolute",
+              left: r.left,
+              top: r.top,
+              width: r.right - r.left,
+              height: r.height,
+              borderRadius: 4,
+              pointerEvents: "none",
+              boxSizing: "border-box",
               background: "oklch(0.42 0.13 245 / 0.10)",
               border: "1.5px solid oklch(0.42 0.13 245 / 0.45)",
-            }),
-          };
-
-          return <div key={i} style={styles} />;
-        })}
+            }} />
+          ));
+        })()}
       </div>
     </div>
   );
