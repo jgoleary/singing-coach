@@ -95,6 +95,22 @@ export function parseScore(xmlString: string): ParsedScore {
               }
             }
 
+            // Tie (playback): a note can carry <tie type="start"/>, <tie type="stop"/>, or both.
+            // Tied continuations (stop/both) should not be re-attacked.
+            const tieEls = noteEl.querySelectorAll(":scope > tie");
+            let hasTieStart = false;
+            let hasTieStop = false;
+            tieEls.forEach((t) => {
+              const type = t.getAttribute("type");
+              if (type === "start") hasTieStart = true;
+              else if (type === "stop") hasTieStop = true;
+            });
+            const tieType: "start" | "stop" | "both" | undefined =
+              hasTieStart && hasTieStop ? "both"
+              : hasTieStart ? "start"
+              : hasTieStop ? "stop"
+              : undefined;
+
             notes.push({
               measureNumber: number,
               beatPosition,
@@ -102,6 +118,7 @@ export function parseScore(xmlString: string): ParsedScore {
               pitch,
               isRest,
               lyric,
+              tieType,
             });
           }
         }

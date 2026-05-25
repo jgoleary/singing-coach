@@ -4,7 +4,7 @@ import { useCallback, useRef } from "react";
 import * as Tone from "tone";
 import Soundfont from "soundfont-player";
 import { useStore } from "../store/useStore";
-import { noteToFrequency, beatsToSeconds } from "../utils/noteUtils";
+import { noteToFrequency, beatsToSeconds, expandTiedNotes } from "../utils/noteUtils";
 import type { ParsedScore, Part } from "../types";
 
 type SoundfontInstrument = {
@@ -116,19 +116,17 @@ export function useAudioEngine() {
       score: ParsedScore,
       tempo: number
     ) => {
-      for (const measure of part.measures) {
-        for (const note of measure.notes) {
-          if (!note.pitch || note.isRest) continue;
-          const noteStart = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
-          if (noteStart < passageStart || noteStart >= passageEnd) continue;
-          const offset = noteStart - passageStart;
-          const durationSec = note.duration * (60 / tempo);
-          const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
-          const midi = pitchToMidi(note.pitch.step, note.pitch.octave, note.pitch.alter);
-          Tone.getTransport().schedule((time) => {
-            instrument.play({ frequency: freq, midi }, time, durationSec);
-          }, offset);
-        }
+      for (const { measure, note, durationBeats } of expandTiedNotes(part)) {
+        if (!note.pitch || note.isRest) continue;
+        const noteStart = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
+        if (noteStart < passageStart || noteStart >= passageEnd) continue;
+        const offset = noteStart - passageStart;
+        const durationSec = durationBeats * (60 / tempo);
+        const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
+        const midi = pitchToMidi(note.pitch.step, note.pitch.octave, note.pitch.alter);
+        Tone.getTransport().schedule((time) => {
+          instrument.play({ frequency: freq, midi }, time, durationSec);
+        }, offset);
       }
     },
     []

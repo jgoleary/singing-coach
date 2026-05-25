@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useStore } from "../store/useStore";
-import { noteToFrequency, beatsToSeconds } from "../utils/noteUtils";
+import { noteToFrequency, beatsToSeconds, expandTiedNotes } from "../utils/noteUtils";
 import type { TargetNote, PitchFrame } from "../types";
 
 export function usePitchAnalysis() {
@@ -21,20 +21,18 @@ export function usePitchAnalysis() {
       : Infinity;
 
     const targets: TargetNote[] = [];
-    for (const measure of voicePart.measures) {
-      for (const note of measure.notes) {
-        if (!note.pitch || note.isRest) continue;
-        const startSec = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
-        if (startSec < passageStart || startSec >= passageEnd) continue;
-        const durationSec = note.duration * (60 / tempo);
-        const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
-        targets.push({
-          startTime: startSec - passageStart,
-          endTime: startSec - passageStart + durationSec,
-          frequency: freq,
-          lyric: note.lyric,
-        });
-      }
+    for (const { measure, note, durationBeats } of expandTiedNotes(voicePart)) {
+      if (!note.pitch || note.isRest) continue;
+      const startSec = beatsToSeconds(measure.number, note.beatPosition, tempo, measure);
+      if (startSec < passageStart || startSec >= passageEnd) continue;
+      const durationSec = durationBeats * (60 / tempo);
+      const freq = noteToFrequency(note.pitch.step, note.pitch.octave, note.pitch.alter);
+      targets.push({
+        startTime: startSec - passageStart,
+        endTime: startSec - passageStart + durationSec,
+        frequency: freq,
+        lyric: note.lyric,
+      });
     }
     return targets;
   }, []);

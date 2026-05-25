@@ -5,6 +5,7 @@ export interface Note {
   pitch: { step: string; octave: number; alter: number } | null;
   isRest: boolean;
   lyric?: string; // syllable text; trailing "-" added for non-final syllables
+  tieType?: "start" | "stop" | "both"; // playback tie: stop/both notes are not re-attacked
 }
 
 export interface Measure {
