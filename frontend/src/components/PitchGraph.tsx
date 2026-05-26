@@ -9,10 +9,21 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
+import * as Tone from "tone";
 import { useStore } from "../store/useStore";
 import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
+
+function playPreviewNote(frequency: number) {
+  Tone.start(); // unlocks AudioContext on first user gesture
+  const synth = new Tone.Synth({
+    oscillator: { type: "triangle" },
+    envelope: { attack: 0.005, decay: 0.3, sustain: 0.15, release: 0.6 },
+  }).toDestination();
+  synth.triggerAttackRelease(frequency, "0.75");
+  setTimeout(() => synth.dispose(), 2500);
+}
 
 function buildTargetData(targetNotes: TargetNote[], duration: number) {
   const points: { time: number; target: number | null }[] = [];
@@ -140,10 +151,27 @@ export default function PitchGraph() {
       .filter((t) => t >= 0);
   })();
 
+  function handleChartClick(state: { activeLabel?: string | number }) {
+    const raw = state.activeLabel;
+    if (raw == null) return;
+    const time = typeof raw === "number" ? raw : parseFloat(raw);
+    if (!Number.isFinite(time)) return;
+    const note = displayTargetNotes.find(
+      (n) => time >= n.startTime && time < n.endTime
+    );
+    if (!note) return;
+    playPreviewNote(note.frequency);
+  }
+
   return (
     <div style={{ height: "100%", padding: "12px 4px 8px 0" }}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={data} margin={{ top: 8, right: 16, bottom: 20, left: 48 }}>
+        <ComposedChart
+          data={data}
+          margin={{ top: 8, right: 16, bottom: 20, left: 48 }}
+          onClick={handleChartClick}
+          style={{ cursor: "crosshair" }}
+        >
           <CartesianGrid
             vertical={false}
             stroke="var(--line-soft)" strokeWidth={0.5}
