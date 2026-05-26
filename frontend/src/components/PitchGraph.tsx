@@ -15,14 +15,25 @@ import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
 
+let _previewSynth: Tone.Synth | null = null;
+
 function playPreviewNote(frequency: number) {
-  Tone.start(); // unlocks AudioContext on first user gesture
+  Tone.start();
+  if (_previewSynth) {
+    _previewSynth.triggerRelease();
+    _previewSynth.dispose();
+    _previewSynth = null;
+  }
   const synth = new Tone.Synth({
     oscillator: { type: "triangle" },
     envelope: { attack: 0.005, decay: 0.3, sustain: 0.15, release: 0.6 },
   }).toDestination();
-  synth.triggerAttackRelease(frequency, "0.75");
-  setTimeout(() => synth.dispose(), 2500);
+  synth.triggerAttackRelease(frequency, 0.75);
+  _previewSynth = synth;
+  setTimeout(() => {
+    if (_previewSynth === synth) _previewSynth = null;
+    synth.dispose();
+  }, 4000);
 }
 
 function buildTargetData(targetNotes: TargetNote[], duration: number) {
