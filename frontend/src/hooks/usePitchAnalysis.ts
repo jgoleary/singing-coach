@@ -48,7 +48,8 @@ export function usePitchAnalysis() {
     form.append("audio", blob, "recording.webm");
 
     try {
-      const res = await fetch("http://localhost:8080/analyze-pitch", {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
+      const res = await fetch(`${backendUrl}/analyze-pitch`, {
         method: "POST",
         body: form,
       });

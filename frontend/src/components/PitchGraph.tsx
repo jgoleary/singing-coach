@@ -106,7 +106,7 @@ export default function PitchGraph() {
   if (analysisStatus === "error") {
     return (
       <div style={{ ...centeredStyle, color: "var(--danger)" }}>
-        Pitch analysis failed. {analysisError ?? "Check that the backend is running on localhost:8080."}
+        Pitch analysis failed. {analysisError ?? "Check that the backend is running or VITE_BACKEND_URL is set."}
       </div>
     );
   }
