@@ -17,6 +17,7 @@ image = (
     .apt_install("libsndfile1")
     .pip_install(
         "setuptools",
+        "wheel",
         "fastapi==0.136.1",
         "python-multipart==0.0.29",
         "tensorflow==2.21.0",
@@ -24,10 +25,16 @@ image = (
         "soundfile==0.13.1",
         "numpy==2.4.6",
         "av==17.0.1",
+        "resampy",   # crepe runtime dep
+        "scipy",     # crepe runtime dep (viterbi)
     )
-    # crepe==0.0.16 uses old-style setup.py that needs pkg_resources (setuptools);
-    # --no-build-isolation lets it find the already-installed setuptools
-    .pip_install("crepe==0.0.16", extra_options="--no-build-isolation")
+    # crepe 0.0.16 imports pkg_resources in setup.py; pip's subprocess cannot
+    # find it on Python 3.12. Bypass pip by running setup.py install directly.
+    .run_commands(
+        "pip download crepe==0.0.16 --no-deps -d /tmp/crepe_src"
+        " && cd /tmp && tar xzf /tmp/crepe_src/crepe-0.0.16.tar.gz"
+        " && cd /tmp/crepe-0.0.16 && python setup.py install"
+    )
     # Copy pitch_analyzer into the image so it's importable without the backend package
     .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
     # Pre-download CREPE weights so cold starts don't re-download the model
