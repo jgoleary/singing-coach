@@ -33,7 +33,7 @@ image = (
     # curl the tarball from Modal's PyPI mirror, patch the import to use setuptools
     # (same API), then run setup.py install directly in Python (not pip's subprocess).
     .run_commands(
-        "curl -fsSL 'http://pypi-mirror.modal.local:5555/simple/crepe/crepe-0.0.16.tar.gz'"
+        "curl -fsSL 'https://files.pythonhosted.org/packages/source/c/crepe/crepe-0.0.16.tar.gz'"
         " -o /tmp/crepe.tar.gz"
         " && tar xzf /tmp/crepe.tar.gz -C /tmp"
         " && sed -i 's/import pkg_resources/import setuptools as pkg_resources/'"
