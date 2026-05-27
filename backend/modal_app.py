@@ -42,10 +42,10 @@ image = (
         "#' /tmp/crepe-0.0.16/setup.py"
         " && cd /tmp/crepe-0.0.16 && python3 setup.py install"
     )
-    # Copy pitch_analyzer into the image so it's importable without the backend package
-    .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
     # Pre-download CREPE weights so cold starts don't re-download the model
     .run_function(_download_crepe_weights)
+    # Add local source last — Modal mounts this at container startup, not image build time
+    .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
 )
 
 app = modal.App("singing-coach-backend", image=image)
