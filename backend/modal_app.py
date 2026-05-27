@@ -26,7 +26,7 @@ image = (
         "av==17.0.1",
     )
     # Copy pitch_analyzer into the image so it's importable without the backend package
-    .copy_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
+    .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
     # Pre-download CREPE weights so cold starts don't re-download the model
     .run_function(_download_crepe_weights)
 )
