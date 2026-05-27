@@ -47,7 +47,6 @@ export default function FlaggedPassages() {
                 width: 28, height: "100%", flexShrink: 0,
                 background: "transparent",
                 borderLeft: "1px solid var(--sidebar-line)",
-                borderLeft: "1px solid var(--sidebar-line)",
                 color: "var(--sidebar-ink-4)", cursor: "pointer",
                 fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center",
               }}

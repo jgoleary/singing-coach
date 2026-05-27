@@ -5,7 +5,7 @@ import * as Tone from "tone";
 import Soundfont from "soundfont-player";
 import { useStore } from "../store/useStore";
 import { noteToFrequency, beatsToSeconds, expandTiedNotes } from "../utils/noteUtils";
-import type { ParsedScore, Part } from "../types";
+import type { Part } from "../types";
 
 type SoundfontInstrument = {
   play: (note: string | number, when?: number, options?: { duration?: number }) => unknown;
@@ -88,6 +88,7 @@ function pitchToMidi(step: string, octave: number, alter: number): number {
 
 export function useAudioEngine() {
   const instrumentsRef = useRef<Record<string, PlayableInstrument>>({});
+  const instrumentNamesRef = useRef<Record<string, string>>({});
 
   const getPassageBounds = useCallback(() => {
     const state = useStore.getState();
@@ -113,7 +114,6 @@ export function useAudioEngine() {
       instrument: PlayableInstrument,
       passageStart: number,
       passageEnd: number,
-      score: ParsedScore,
       tempo: number
     ) => {
       for (const { measure, note, durationBeats } of expandTiedNotes(part)) {
@@ -152,15 +152,15 @@ export function useAudioEngine() {
 
     // Load instruments (cached by name; reload if instrument changed)
     if (state.playVoice && state.voicePartId) {
-      if (instrumentsRef.current["voice_name"] !== state.voiceInstrument) {
+      if (instrumentNamesRef.current["voice"] !== state.voiceInstrument) {
         instrumentsRef.current["voice"] = await getPlayableInstrument(state.voiceInstrument);
-        instrumentsRef.current["voice_name"] = state.voiceInstrument;
+        instrumentNamesRef.current["voice"] = state.voiceInstrument;
       }
     }
     if (state.playAccompaniment && state.accompanimentPartId) {
-      if (instrumentsRef.current["piano_name"] !== state.accompanimentInstrument) {
+      if (instrumentNamesRef.current["piano"] !== state.accompanimentInstrument) {
         instrumentsRef.current["piano"] = await getPlayableInstrument(state.accompanimentInstrument);
-        instrumentsRef.current["piano_name"] = state.accompanimentInstrument;
+        instrumentNamesRef.current["piano"] = state.accompanimentInstrument;
       }
     }
 
@@ -169,10 +169,10 @@ export function useAudioEngine() {
     // Schedule notes for each part
     for (const part of score.parts) {
       if (part.id === state.voicePartId && state.playVoice) {
-        await schedulePartNotes(part, instrumentsRef.current["voice"], bounds.start, bounds.end, score, tempo);
+        await schedulePartNotes(part, instrumentsRef.current["voice"], bounds.start, bounds.end, tempo);
       }
       if (part.id === state.accompanimentPartId && state.playAccompaniment) {
-        await schedulePartNotes(part, instrumentsRef.current["piano"], bounds.start, bounds.end, score, tempo);
+        await schedulePartNotes(part, instrumentsRef.current["piano"], bounds.start, bounds.end, tempo);
       }
     }
 
@@ -216,15 +216,15 @@ export function useAudioEngine() {
     Tone.getTransport().stop();
     Tone.getTransport().position = 0;
 
-    if (instrumentsRef.current["piano_name"] !== state.accompanimentInstrument) {
+    if (instrumentNamesRef.current["piano"] !== state.accompanimentInstrument) {
       instrumentsRef.current["piano"] = await getPlayableInstrument(state.accompanimentInstrument);
-      instrumentsRef.current["piano_name"] = state.accompanimentInstrument;
+      instrumentNamesRef.current["piano"] = state.accompanimentInstrument;
     }
 
     const tempo = score.tempo * (state.tempoScale / 100);
     const accompPart = score.parts.find((p) => p.id === state.accompanimentPartId);
     if (accompPart) {
-      await schedulePartNotes(accompPart, instrumentsRef.current["piano"], bounds.start, bounds.end, score, tempo);
+      await schedulePartNotes(accompPart, instrumentsRef.current["piano"], bounds.start, bounds.end, tempo);
     }
 
     Tone.getTransport().schedule(() => {
