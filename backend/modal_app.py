@@ -14,7 +14,7 @@ def _download_crepe_weights():
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
-    .apt_install("libsndfile1")
+    .apt_install("libsndfile1", "curl")
     .pip_install(
         "setuptools",
         "wheel",
@@ -28,12 +28,17 @@ image = (
         "resampy",   # crepe runtime dep
         "scipy",     # crepe runtime dep (viterbi)
     )
-    # crepe 0.0.16 imports pkg_resources in setup.py; pip's subprocess cannot
-    # find it on Python 3.12. Bypass pip by running setup.py install directly.
+    # crepe 0.0.16 imports pkg_resources in setup.py; pip's subprocess can't find it
+    # on Python 3.12+ (even with setuptools installed). Bypass pip entirely:
+    # curl the tarball from Modal's PyPI mirror, patch the import to use setuptools
+    # (same API), then run setup.py install directly in Python (not pip's subprocess).
     .run_commands(
-        "pip download crepe==0.0.16 --no-deps -d /tmp/crepe_src"
-        " && cd /tmp && tar xzf /tmp/crepe_src/crepe-0.0.16.tar.gz"
-        " && cd /tmp/crepe-0.0.16 && python setup.py install"
+        "curl -fsSL 'http://pypi-mirror.modal.local:5555/simple/crepe/crepe-0.0.16.tar.gz'"
+        " -o /tmp/crepe.tar.gz"
+        " && tar xzf /tmp/crepe.tar.gz -C /tmp"
+        " && sed -i 's/import pkg_resources/import setuptools as pkg_resources/'"
+        " /tmp/crepe-0.0.16/setup.py"
+        " && python3 /tmp/crepe-0.0.16/setup.py install"
     )
     # Copy pitch_analyzer into the image so it's importable without the backend package
     .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
