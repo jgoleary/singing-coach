@@ -38,7 +38,7 @@ image = (
         " && tar xzf /tmp/crepe.tar.gz -C /tmp"
         " && sed -i 's/import pkg_resources/import setuptools as pkg_resources/'"
         " /tmp/crepe-0.0.16/setup.py"
-        " && python3 /tmp/crepe-0.0.16/setup.py install"
+        " && cd /tmp/crepe-0.0.16 && python3 setup.py install"
     )
     # Copy pitch_analyzer into the image so it's importable without the backend package
     .add_local_file("backend/pitch_analyzer.py", "/root/pitch_analyzer.py")
