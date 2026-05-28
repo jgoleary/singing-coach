@@ -25,8 +25,9 @@ image = (
         "soundfile==0.13.1",
         "numpy==2.4.6",
         "av==17.0.1",
-        "resampy",   # crepe runtime dep
-        "scipy",     # crepe runtime dep (viterbi)
+        "resampy",    # crepe runtime dep
+        "scipy",      # crepe runtime dep (viterbi)
+        "hmmlearn",   # crepe runtime dep (viterbi)
     )
     # crepe 0.0.16 imports pkg_resources in setup.py; pip's subprocess can't find it
     # on Python 3.12+ (even with setuptools installed). Bypass pip entirely:
@@ -53,7 +54,7 @@ app = modal.App("singing-coach-backend", image=image)
 MAX_AUDIO_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
-@app.function(timeout=120, memory=2048)
+@app.function(timeout=120, memory=2048, scaledown_window=300, cpu=2.0)
 @modal.asgi_app()
 def fastapi_app():
     import sys

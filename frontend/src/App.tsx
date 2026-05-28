@@ -92,6 +92,12 @@ export default function App() {
   const { lastRecordingBlob, pitchData, targetNotes, analysisStatus } = useStore();
   const takeNumber = useStore((s) => s.takeNumber);
 
+  // Warm up the backend on mount so the first analysis request isn't slow
+  useEffect(() => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8080";
+    fetch(`${backendUrl}/health`).catch(() => {});
+  }, []);
+
   // Restore last active score on mount
   useEffect(() => {
     const filename = getActiveFilename();
