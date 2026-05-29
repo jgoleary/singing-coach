@@ -244,6 +244,13 @@ export default function PitchGraph() {
     setIsPanning(false);
   }
 
+  function handleDoubleClick() {
+    setZoomedDomain(null);
+    dragStartRef.current = null;
+    setDragCurrent(null);
+    setIsPanning(false);
+  }
+
   function handleMouseLeave() {
     const ds = dragStartRef.current;
     if (!ds) return;
@@ -262,6 +269,21 @@ export default function PitchGraph() {
 
   return (
     <div ref={containerRef} style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative" }}>
+      {zoomedDomain !== null && (
+        <div style={{
+          position: "absolute",
+          top: 14,
+          right: 20,
+          fontSize: 9,
+          color: "var(--ink-4)",
+          fontFamily: "var(--font-mono)",
+          pointerEvents: "none",
+          zIndex: 10,
+          userSelect: "none",
+        }}>
+          drag to pan · double-click to reset
+        </div>
+      )}
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
@@ -271,6 +293,7 @@ export default function PitchGraph() {
           onMouseMove={handleMouseMove as (s: unknown) => void}
           onMouseUp={handleMouseUp as (s: unknown) => void}
           onMouseLeave={handleMouseLeave}
+          onDoubleClick={handleDoubleClick}
           style={{ cursor: zoomedDomain === null ? "crosshair" : isPanning ? "grabbing" : "grab" }}
         >
           <CartesianGrid
