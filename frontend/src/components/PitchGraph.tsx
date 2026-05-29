@@ -168,6 +168,24 @@ export default function PitchGraph() {
   ].filter(Boolean);
 
   if (duration <= 0 || allFreqs.length === 0) {
+    if (zoomedDomain !== null) {
+      return (
+        <div
+          ref={containerRef}
+          style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative", cursor: "zoom-out" }}
+          onDoubleClick={() => {
+            setZoomedDomain(null);
+            dragStartRef.current = null;
+            setDragCurrent(null);
+            setIsPanning(false);
+          }}
+        >
+          <div style={centeredStyle}>
+            No pitch data in this range. Double-click to reset zoom.
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={centeredStyle}>
         No pitch frames detected. Try recording a louder sustained note.
