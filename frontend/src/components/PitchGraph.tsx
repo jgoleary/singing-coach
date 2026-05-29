@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import {
   ComposedChart,
   Line,
@@ -12,6 +13,8 @@ import {
 import * as Tone from "tone";
 import { useStore } from "../store/useStore";
 import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { pixelsToTime, panDomain } from "../utils/zoomUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
 
@@ -100,6 +103,16 @@ export default function PitchGraph() {
   const pitchToleranceCents = useStore((s) => s.pitchToleranceCents);
   const bandRatio = Math.pow(2, pitchToleranceCents / 1200);
 
+  // Zoom/pan state (setters used in Task 3/4)
+  type DragStart = { time: number; chartX: number; domain: [number, number] | null } | null;
+  const dragStartRef = useRef<DragStart>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_dragCurrent, setDragCurrent] = useState<number | null>(null);
+  const [zoomedDomain, setZoomedDomain] = useState<[number, number] | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isPanning, setIsPanning] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   if (analysisStatus === "analyzing") {
     return <div style={centeredStyle}>Analyzing recording…</div>;
   }
@@ -122,13 +135,26 @@ export default function PitchGraph() {
   const duration = Math.max(pitchDuration, targetDuration);
   const data = buildChartData(pitchData, displayTargetNotes, duration);
 
-  // Y domain: use only high-confidence frames so wrong-octave noise doesn't inflate the axis
-  const confidentFreqs = pitchData
+  // X domain: clip to where target notes actually exist, plus a small margin
+  const targetStart = Math.min(...displayTargetNotes.map((n) => n.startTime));
+  const targetEnd = Math.max(...displayTargetNotes.map((n) => n.endTime));
+  const xMin = Math.max(0, targetStart - 0.5);
+  const xMax = Math.min(duration, targetEnd + 0.5);
+  const [domainMin, domainMax] = zoomedDomain ?? [xMin, xMax];
+
+  // Y domain: only frames/notes visible within the current X window
+  const visibleFrames = pitchData.filter(
+    (f) => f.time >= domainMin && f.time <= domainMax
+  );
+  const visibleTargets = displayTargetNotes.filter(
+    (n) => n.endTime >= domainMin && n.startTime <= domainMax
+  );
+  const confidentFreqs = visibleFrames
     .filter((f) => f.confidence >= 0.65)
     .map((f) => f.frequency);
   const allFreqs = [
     ...confidentFreqs,
-    ...displayTargetNotes.map((n) => n.frequency),
+    ...visibleTargets.map((n) => n.frequency),
   ].filter(Boolean);
 
   if (duration <= 0 || allFreqs.length === 0) {
@@ -142,11 +168,6 @@ export default function PitchGraph() {
   const minFreq = Math.max(80, Math.min(...allFreqs) * 0.85);
   const maxFreq = Math.min(2000, Math.max(...allFreqs) * 1.15);
 
-  // X domain: clip to where target notes actually exist, plus a small margin
-  const targetStart = Math.min(...displayTargetNotes.map((n) => n.startTime));
-  const targetEnd = Math.max(...displayTargetNotes.map((n) => n.endTime));
-  const xMin = Math.max(0, targetStart - 0.5);
-  const xMax = Math.min(duration, targetEnd + 0.5);
   const visibleTicks = NOTE_TICKS.filter((t) => t.freq >= minFreq && t.freq <= maxFreq);
 
   // Measure boundary times relative to passage start
@@ -175,7 +196,7 @@ export default function PitchGraph() {
   }
 
   return (
-    <div style={{ height: "100%", padding: "12px 4px 8px 0" }}>
+    <div ref={containerRef} style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative" }}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
@@ -191,7 +212,7 @@ export default function PitchGraph() {
           <XAxis
             dataKey="time"
             type="number"
-            domain={[xMin, xMax]}
+            domain={[domainMin, domainMax]}
             tickFormatter={(v: number) => `${v.toFixed(1)}s`}
             stroke="var(--line)"
             tick={{ fill: "var(--ink-4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
