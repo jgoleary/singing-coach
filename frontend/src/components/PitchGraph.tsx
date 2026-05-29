@@ -229,7 +229,7 @@ export default function PitchGraph() {
     }
   }
 
-  function handleMouseUp(state: ChartState) {
+  function handleMouseUp() {
     const ds = dragStartRef.current;
     if (!ds) return;
 
