@@ -13,7 +13,6 @@ import {
 import * as Tone from "tone";
 import { useStore } from "../store/useStore";
 import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { pixelsToTime, panDomain } from "../utils/zoomUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
@@ -103,15 +102,26 @@ export default function PitchGraph() {
   const pitchToleranceCents = useStore((s) => s.pitchToleranceCents);
   const bandRatio = Math.pow(2, pitchToleranceCents / 1200);
 
-  // Zoom/pan state (setters used in Task 3/4)
+  // Zoom/pan state
   type DragStart = { time: number; chartX: number; domain: [number, number] | null } | null;
   const dragStartRef = useRef<DragStart>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_dragCurrent, setDragCurrent] = useState<number | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<number | null>(null);
   const [zoomedDomain, setZoomedDomain] = useState<[number, number] | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_isPanning, setIsPanning] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  function getChartInnerWidth(): number {
+    if (!containerRef.current) return 700;
+    return containerRef.current.getBoundingClientRect().width - 48 - 16; // left + right margins
+  }
+
+  type ChartState = { activeLabel?: string | number; chartX?: number };
+
+  function timeFromLabel(label: string | number | undefined): number | null {
+    if (label == null) return null;
+    const t = typeof label === "number" ? label : parseFloat(label);
+    return Number.isFinite(t) ? t : null;
+  }
 
   if (analysisStatus === "analyzing") {
     return <div style={centeredStyle}>Analyzing recording…</div>;
@@ -195,6 +205,61 @@ export default function PitchGraph() {
     playPreviewNote(note.frequency);
   }
 
+  function handleMouseDown(state: ChartState) {
+    const time = timeFromLabel(state.activeLabel);
+    if (time == null || state.chartX == null) return;
+    dragStartRef.current = { time, chartX: state.chartX, domain: zoomedDomain };
+    if (zoomedDomain !== null) setIsPanning(true);
+  }
+
+  function handleMouseMove(state: ChartState) {
+    if (!dragStartRef.current) return;
+    const time = timeFromLabel(state.activeLabel);
+    if (time == null || state.chartX == null) return;
+
+    if (dragStartRef.current.domain === null) {
+      // zoom mode: update selection endpoint
+      setDragCurrent(time);
+    } else {
+      // pan mode: shift domain based on total displacement from drag start
+      const deltaPixels = dragStartRef.current.chartX - state.chartX;
+      const domainWidth = dragStartRef.current.domain[1] - dragStartRef.current.domain[0];
+      const deltaTime = pixelsToTime(deltaPixels, domainWidth, getChartInnerWidth());
+      setZoomedDomain(panDomain(dragStartRef.current.domain, deltaTime, [0, duration]));
+    }
+  }
+
+  function handleMouseUp(state: ChartState) {
+    const ds = dragStartRef.current;
+    if (!ds) return;
+
+    if (ds.domain === null && dragCurrent !== null) {
+      const t0 = Math.min(ds.time, dragCurrent);
+      const t1 = Math.max(ds.time, dragCurrent);
+      if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
+    }
+
+    dragStartRef.current = null;
+    setDragCurrent(null);
+    setIsPanning(false);
+  }
+
+  function handleMouseLeave() {
+    const ds = dragStartRef.current;
+    if (!ds) return;
+
+    // commit zoom if span is large enough; discard pan (domain already updated live)
+    if (ds.domain === null && dragCurrent !== null) {
+      const t0 = Math.min(ds.time, dragCurrent);
+      const t1 = Math.max(ds.time, dragCurrent);
+      if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
+    }
+
+    dragStartRef.current = null;
+    setDragCurrent(null);
+    setIsPanning(false);
+  }
+
   return (
     <div ref={containerRef} style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative" }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -202,7 +267,11 @@ export default function PitchGraph() {
           data={data}
           margin={{ top: 8, right: 16, bottom: 20, left: 48 }}
           onClick={handleChartClick}
-          style={{ cursor: "crosshair" }}
+          onMouseDown={handleMouseDown as (s: unknown) => void}
+          onMouseMove={handleMouseMove as (s: unknown) => void}
+          onMouseUp={handleMouseUp as (s: unknown) => void}
+          onMouseLeave={handleMouseLeave}
+          style={{ cursor: zoomedDomain === null ? "crosshair" : isPanning ? "grabbing" : "grab" }}
         >
           <CartesianGrid
             vertical={false}
@@ -336,6 +405,18 @@ export default function PitchGraph() {
             isAnimationActive={false}
             name="voiceFaint"
           />
+
+          {/* Zoom drag selection rectangle */}
+          {dragCurrent !== null && dragStartRef.current?.domain === null && (
+            <ReferenceArea
+              x1={Math.min(dragStartRef.current!.time, dragCurrent)}
+              x2={Math.max(dragStartRef.current!.time, dragCurrent)}
+              fill="rgba(99, 102, 241, 0.08)"
+              stroke="rgba(99, 102, 241, 0.5)"
+              strokeWidth={1.5}
+              ifOverflow="visible"
+            />
+          )}
 
         </ComposedChart>
       </ResponsiveContainer>
