@@ -109,6 +109,7 @@ export default function PitchGraph() {
   const [zoomedDomain, setZoomedDomain] = useState<[number, number] | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const suppressNextClickRef = useRef(false);
 
   function getChartInnerWidth(): number {
     if (!containerRef.current) return 700;
@@ -212,6 +213,7 @@ export default function PitchGraph() {
   })();
 
   function handleChartClick(state: { activeLabel?: string | number }) {
+    if (suppressNextClickRef.current) { suppressNextClickRef.current = false; return; }
     const raw = state.activeLabel;
     if (raw == null) return;
     const time = typeof raw === "number" ? raw : parseFloat(raw);
@@ -257,6 +259,7 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
+    if (dragCurrent !== null) suppressNextClickRef.current = true;
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
@@ -280,6 +283,7 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
+    if (dragCurrent !== null) suppressNextClickRef.current = true;
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
