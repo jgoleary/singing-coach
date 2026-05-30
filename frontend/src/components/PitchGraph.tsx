@@ -118,6 +118,7 @@ export default function PitchGraph() {
   }
 
   type ChartState = { activeLabel?: string | number; chartX?: number };
+  type ChartMouseEvent = { clientX: number };
 
   function timeFromLabel(label: string | number | undefined): number | null {
     if (label == null) return null;
@@ -226,29 +227,30 @@ export default function PitchGraph() {
     playPreviewNote(note.frequency);
   }
 
-  function handleMouseDown(state: ChartState) {
+  function handleMouseDown(state: ChartState, event: ChartMouseEvent) {
     const time = timeFromLabel(state.activeLabel);
-    if (time == null || state.chartX == null) return;
-    dragStartRef.current = { time, chartX: state.chartX, domain: zoomedDomain };
+    const chartX = state.chartX ?? event?.clientX;
+    if (time == null || chartX == null) return;
+    dragStartRef.current = { time, chartX, domain: zoomedDomain };
     hasDraggedRef.current = false;
     if (zoomedDomain !== null) setIsPanning(true);
   }
 
-  function handleMouseMove(state: ChartState) {
+  function handleMouseMove(state: ChartState, event: ChartMouseEvent) {
     if (!dragStartRef.current) return;
-    const time = timeFromLabel(state.activeLabel);
-    if (time == null || state.chartX == null) return;
-
-    if (Math.abs(state.chartX - dragStartRef.current.chartX) > 2) {
+    const chartX = state.chartX ?? event?.clientX;
+    if (chartX != null && Math.abs(chartX - dragStartRef.current.chartX) > 2) {
       hasDraggedRef.current = true;
     }
+    const time = timeFromLabel(state.activeLabel);
+    if (time == null || chartX == null) return;
 
     if (dragStartRef.current.domain === null) {
       // zoom mode: update selection endpoint
       setDragCurrent(time);
     } else {
       // pan mode: shift domain based on total displacement from drag start
-      const deltaPixels = dragStartRef.current.chartX - state.chartX;
+      const deltaPixels = dragStartRef.current.chartX - chartX;
       const domainWidth = dragStartRef.current.domain[1] - dragStartRef.current.domain[0];
       const deltaTime = pixelsToTime(deltaPixels, domainWidth, getChartInnerWidth());
       setZoomedDomain(panDomain(dragStartRef.current.domain, deltaTime, [0, duration]));
