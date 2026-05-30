@@ -91,6 +91,76 @@ const centeredStyle: React.CSSProperties = {
   fontSize: 13, color: "var(--ink-3)",
 };
 
+function ToolbarButton({
+  active, onClick, title, children,
+}: {
+  active?: boolean; onClick: () => void; title: string; children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
+      style={{
+        width: 24, height: 24, padding: 0, borderRadius: 4, cursor: "pointer",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
+        background: active ? "var(--accent-soft)" : "var(--paper)",
+        color: active ? "var(--accent)" : "var(--ink-3)",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ChartToolbar({
+  mode, onModeChange, canReset, onReset,
+}: {
+  mode: "note" | "zoom";
+  onModeChange: (m: "note" | "zoom") => void;
+  canReset: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div style={{
+      position: "absolute", top: 8, left: 56, zIndex: 10,
+      display: "flex", gap: 4,
+    }}>
+      <ToolbarButton
+        active={mode === "note"}
+        onClick={() => onModeChange("note")}
+        title="Play notes (click target notes)"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+        </svg>
+      </ToolbarButton>
+      <ToolbarButton
+        active={mode === "zoom"}
+        onClick={() => onModeChange("zoom")}
+        title="Zoom (drag to zoom in; drag to pan when zoomed)"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <line x1="21" y1="21" x2="15.5" y2="15.5" />
+          <line x1="7" y1="10.5" x2="14" y2="10.5" />
+          <line x1="10.5" y1="7" x2="10.5" y2="14" />
+        </svg>
+      </ToolbarButton>
+      {canReset && (
+        <ToolbarButton onClick={onReset} title="Reset zoom">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          </svg>
+        </ToolbarButton>
+      )}
+    </div>
+  );
+}
+
 export default function PitchGraph() {
   const pitchData = useStore((s) => s.pitchData);
   const targetNotes = useStore((s) => s.targetNotes);
@@ -108,9 +178,15 @@ export default function PitchGraph() {
   const [dragCurrent, setDragCurrent] = useState<number | null>(null);
   const [zoomedDomain, setZoomedDomain] = useState<[number, number] | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+  const [chartMode, setChartMode] = useState<"note" | "zoom">("note");
   const containerRef = useRef<HTMLDivElement>(null);
-  const suppressNextClickRef = useRef(false);
-  const hasDraggedRef = useRef(false);
+
+  function resetZoom() {
+    setZoomedDomain(null);
+    dragStartRef.current = null;
+    setDragCurrent(null);
+    setIsPanning(false);
+  }
 
   function getChartInnerWidth(): number {
     if (!containerRef.current) return 700;
@@ -176,12 +252,7 @@ export default function PitchGraph() {
         <div
           ref={containerRef}
           style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative", cursor: "zoom-out" }}
-          onDoubleClick={() => {
-            setZoomedDomain(null);
-            dragStartRef.current = null;
-            setDragCurrent(null);
-            setIsPanning(false);
-          }}
+          onDoubleClick={resetZoom}
         >
           <div style={centeredStyle}>
             No pitch data in this range. Double-click to reset zoom.
@@ -215,7 +286,7 @@ export default function PitchGraph() {
   })();
 
   function handleChartClick(state: { activeLabel?: string | number }) {
-    if (suppressNextClickRef.current) { suppressNextClickRef.current = false; return; }
+    if (chartMode !== "note") return;
     const raw = state.activeLabel;
     if (raw == null) return;
     const time = typeof raw === "number" ? raw : parseFloat(raw);
@@ -228,20 +299,17 @@ export default function PitchGraph() {
   }
 
   function handleMouseDown(state: ChartState, event: ChartMouseEvent) {
+    if (chartMode !== "zoom") return;
     const time = timeFromLabel(state.activeLabel);
     const chartX = state.chartX ?? event?.clientX;
     if (time == null || chartX == null) return;
     dragStartRef.current = { time, chartX, domain: zoomedDomain };
-    hasDraggedRef.current = false;
     if (zoomedDomain !== null) setIsPanning(true);
   }
 
   function handleMouseMove(state: ChartState, event: ChartMouseEvent) {
-    if (!dragStartRef.current) return;
+    if (chartMode !== "zoom" || !dragStartRef.current) return;
     const chartX = state.chartX ?? event?.clientX;
-    if (chartX != null && Math.abs(chartX - dragStartRef.current.chartX) > 2) {
-      hasDraggedRef.current = true;
-    }
     const time = timeFromLabel(state.activeLabel);
     if (time == null || chartX == null) return;
 
@@ -267,15 +335,6 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
-    if (hasDraggedRef.current) suppressNextClickRef.current = true;
-    hasDraggedRef.current = false;
-    dragStartRef.current = null;
-    setDragCurrent(null);
-    setIsPanning(false);
-  }
-
-  function handleDoubleClick() {
-    setZoomedDomain(null);
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
@@ -292,8 +351,6 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
-    if (hasDraggedRef.current) suppressNextClickRef.current = true;
-    hasDraggedRef.current = false;
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
@@ -301,21 +358,12 @@ export default function PitchGraph() {
 
   return (
     <div ref={containerRef} style={{ height: "100%", padding: "12px 4px 8px 0", position: "relative" }}>
-      {zoomedDomain !== null && (
-        <div style={{
-          position: "absolute",
-          top: 14,
-          right: 20,
-          fontSize: 9,
-          color: "var(--ink-4)",
-          fontFamily: "var(--font-mono)",
-          pointerEvents: "none",
-          zIndex: 10,
-          userSelect: "none",
-        }}>
-          drag to pan · double-click to reset
-        </div>
-      )}
+      <ChartToolbar
+        mode={chartMode}
+        onModeChange={setChartMode}
+        canReset={zoomedDomain !== null}
+        onReset={resetZoom}
+      />
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
@@ -325,8 +373,16 @@ export default function PitchGraph() {
           onMouseMove={handleMouseMove as (s: unknown) => void}
           onMouseUp={handleMouseUp as (s: unknown) => void}
           onMouseLeave={handleMouseLeave}
-          onDoubleClick={handleDoubleClick}
-          style={{ cursor: zoomedDomain === null ? "crosshair" : isPanning ? "grabbing" : "grab" }}
+          style={{
+            cursor:
+              chartMode === "note"
+                ? "pointer"
+                : zoomedDomain === null
+                ? "crosshair"
+                : isPanning
+                ? "grabbing"
+                : "grab",
+          }}
         >
           <CartesianGrid
             vertical={false}
