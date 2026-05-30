@@ -110,6 +110,7 @@ export default function PitchGraph() {
   const [isPanning, setIsPanning] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const suppressNextClickRef = useRef(false);
+  const hasDraggedRef = useRef(false);
 
   function getChartInnerWidth(): number {
     if (!containerRef.current) return 700;
@@ -229,6 +230,7 @@ export default function PitchGraph() {
     const time = timeFromLabel(state.activeLabel);
     if (time == null || state.chartX == null) return;
     dragStartRef.current = { time, chartX: state.chartX, domain: zoomedDomain };
+    hasDraggedRef.current = false;
     if (zoomedDomain !== null) setIsPanning(true);
   }
 
@@ -236,6 +238,10 @@ export default function PitchGraph() {
     if (!dragStartRef.current) return;
     const time = timeFromLabel(state.activeLabel);
     if (time == null || state.chartX == null) return;
+
+    if (Math.abs(state.chartX - dragStartRef.current.chartX) > 2) {
+      hasDraggedRef.current = true;
+    }
 
     if (dragStartRef.current.domain === null) {
       // zoom mode: update selection endpoint
@@ -259,7 +265,8 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
-    if (dragCurrent !== null) suppressNextClickRef.current = true;
+    if (hasDraggedRef.current) suppressNextClickRef.current = true;
+    hasDraggedRef.current = false;
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
@@ -283,7 +290,8 @@ export default function PitchGraph() {
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
-    if (dragCurrent !== null) suppressNextClickRef.current = true;
+    if (hasDraggedRef.current) suppressNextClickRef.current = true;
+    hasDraggedRef.current = false;
     dragStartRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
