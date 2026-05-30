@@ -11,31 +11,53 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import * as Tone from "tone";
+import Soundfont from "soundfont-player";
 import { useStore } from "../store/useStore";
 import { frequencyToNoteName, beatsToSeconds } from "../utils/noteUtils";
 import { pixelsToTime, panDomain } from "../utils/zoomUtils";
 import type { PitchFrame, TargetNote } from "../types";
 
+type SoundfontInstrumentPlayer = {
+  play: (note: number, when?: number, options?: { duration?: number }) => unknown;
+};
+type SoundfontPlayerLib = {
+  instrument: (
+    ctx: AudioContext,
+    name: string,
+    opts: { soundfont: string }
+  ) => Promise<SoundfontInstrumentPlayer>;
+};
 
-let _previewSynth: Tone.Synth | null = null;
+let _pianoPromise: Promise<SoundfontInstrumentPlayer | null> | null = null;
+
+function getPiano(): Promise<SoundfontInstrumentPlayer | null> {
+  if (!_pianoPromise) {
+    const ctx = Tone.getContext().rawContext as AudioContext;
+    _pianoPromise = (Soundfont as unknown as SoundfontPlayerLib)
+      .instrument(ctx, "acoustic_grand_piano", { soundfont: "MusyngKite" })
+      .catch(() => { _pianoPromise = null; return null; });
+  }
+  return _pianoPromise;
+}
+
+function freqToMidi(freq: number): number {
+  return Math.round(12 * Math.log2(freq / 440) + 69);
+}
 
 function playPreviewNote(frequency: number) {
   Tone.start();
-  if (_previewSynth) {
-    _previewSynth.triggerRelease();
-    _previewSynth.dispose();
-    _previewSynth = null;
-  }
-  const synth = new Tone.Synth({
-    oscillator: { type: "triangle" },
-    envelope: { attack: 0.005, decay: 0.3, sustain: 0.15, release: 0.6 },
-  }).toDestination();
-  synth.triggerAttackRelease(frequency, 0.75);
-  _previewSynth = synth;
-  setTimeout(() => {
-    if (_previewSynth === synth) _previewSynth = null;
-    synth.dispose();
-  }, 4000);
+  getPiano().then((piano) => {
+    if (piano) {
+      piano.play(freqToMidi(frequency), Tone.getContext().currentTime, { duration: 0.75 });
+    } else {
+      const synth = new Tone.Synth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.005, decay: 0.3, sustain: 0.15, release: 0.6 },
+      }).toDestination();
+      synth.triggerAttackRelease(frequency, 0.75);
+      setTimeout(() => synth.dispose(), 4000);
+    }
+  });
 }
 
 function buildTargetData(targetNotes: TargetNote[], duration: number) {
