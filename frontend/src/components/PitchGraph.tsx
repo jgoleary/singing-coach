@@ -126,8 +126,10 @@ function ChartToolbar({
 }) {
   return (
     <div style={{
-      position: "absolute", top: 8, left: 56, zIndex: 10,
-      display: "flex", gap: 4,
+      position: "absolute", top: 6, right: 12, zIndex: 10,
+      display: "flex", gap: 3,
+      background: "var(--paper)", padding: 2, borderRadius: 5,
+      border: "1px solid var(--line-soft)",
     }}>
       <ToolbarButton
         active={mode === "note"}
@@ -175,6 +177,7 @@ export default function PitchGraph() {
   // Zoom/pan state
   type DragStart = { time: number; chartX: number; domain: [number, number] | null } | null;
   const dragStartRef = useRef<DragStart>(null);
+  const dragCurrentRef = useRef<number | null>(null);
   const [dragCurrent, setDragCurrent] = useState<number | null>(null);
   const [zoomedDomain, setZoomedDomain] = useState<[number, number] | null>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -184,6 +187,7 @@ export default function PitchGraph() {
   function resetZoom() {
     setZoomedDomain(null);
     dragStartRef.current = null;
+    dragCurrentRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
   }
@@ -315,6 +319,7 @@ export default function PitchGraph() {
 
     if (dragStartRef.current.domain === null) {
       // zoom mode: update selection endpoint
+      dragCurrentRef.current = time;
       setDragCurrent(time);
     } else {
       // pan mode: shift domain based on total displacement from drag start
@@ -329,13 +334,15 @@ export default function PitchGraph() {
     const ds = dragStartRef.current;
     if (!ds) return;
 
-    if (ds.domain === null && dragCurrent !== null) {
-      const t0 = Math.min(ds.time, dragCurrent);
-      const t1 = Math.max(ds.time, dragCurrent);
+    const finalDragCurrent = dragCurrentRef.current;
+    if (ds.domain === null && finalDragCurrent !== null) {
+      const t0 = Math.min(ds.time, finalDragCurrent);
+      const t1 = Math.max(ds.time, finalDragCurrent);
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
     dragStartRef.current = null;
+    dragCurrentRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
   }
@@ -345,13 +352,15 @@ export default function PitchGraph() {
     if (!ds) return;
 
     // commit zoom if span is large enough; discard pan (domain already updated live)
-    if (ds.domain === null && dragCurrent !== null) {
-      const t0 = Math.min(ds.time, dragCurrent);
-      const t1 = Math.max(ds.time, dragCurrent);
+    const finalDragCurrent = dragCurrentRef.current;
+    if (ds.domain === null && finalDragCurrent !== null) {
+      const t0 = Math.min(ds.time, finalDragCurrent);
+      const t1 = Math.max(ds.time, finalDragCurrent);
       if (t1 - t0 >= 0.5) setZoomedDomain([t0, t1]);
     }
 
     dragStartRef.current = null;
+    dragCurrentRef.current = null;
     setDragCurrent(null);
     setIsPanning(false);
   }
@@ -393,6 +402,7 @@ export default function PitchGraph() {
             dataKey="time"
             type="number"
             domain={[domainMin, domainMax]}
+            allowDataOverflow
             tickFormatter={(v: number) => `${v.toFixed(1)}s`}
             stroke="var(--line)"
             tick={{ fill: "var(--ink-4)", fontSize: 10, fontFamily: "var(--font-mono)" }}
