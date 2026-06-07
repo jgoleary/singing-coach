@@ -12,6 +12,7 @@ import FeedbackPanel from "./components/FeedbackPanel";
 import StatsFooter from "./components/StatsFooter";
 import { parseScore } from "./utils/musicxml";
 import { getActiveFilename, loadFromLibrary } from "./utils/scoreLibrary";
+import { useIsMobile } from "./hooks/useMediaQuery";
 
 type Tab = "score" | "pitch";
 
@@ -88,6 +89,7 @@ function PitchRegion({ hasFinishedAnalysis }: { hasFinishedAnalysis: boolean }) 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("score");
+  const isMobile = useIsMobile();
 
   const { lastRecordingBlob, pitchData, targetNotes, analysisStatus } = useStore();
   const takeNumber = useStore((s) => s.takeNumber);
@@ -123,14 +125,33 @@ export default function App() {
   const hasFinishedAnalysis = analysisStatus === "done" && !!pitchData && !!targetNotes;
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)", overflow: "hidden" }}>
+    <div style={{
+      // Desktop: lock to viewport and contain scroll. Mobile: let the page grow and scroll.
+      height: isMobile ? "auto" : "100dvh",
+      minHeight: isMobile ? "100dvh" : undefined,
+      display: "flex", flexDirection: "column",
+      background: "var(--bg)",
+      overflow: isMobile ? "visible" : "hidden",
+    }}>
       <Toolbar />
       <div style={{ display: "none" }}><FileLoader /></div>
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        overflow: isMobile ? "visible" : "hidden",
+        minHeight: 0,
+      }}>
 
         {/* Left canvas column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+        <div style={{
+          // Mobile: fixed-height readable canvas, controls flow underneath.
+          flex: isMobile ? "0 0 auto" : 1,
+          height: isMobile ? "55dvh" : undefined,
+          display: "flex", flexDirection: "column",
+          overflow: "hidden", minWidth: 0,
+        }}>
 
           {/* Tab strip */}
           <div style={{
@@ -190,13 +211,15 @@ export default function App() {
           />
         </div>
 
-        {/* Right sidebar */}
+        {/* Right sidebar — becomes a full-width block below the canvas on mobile */}
         <div style={{
-          width: 248, flexShrink: 0,
+          width: isMobile ? "100%" : 248,
+          flexShrink: 0,
           background: "var(--sidebar-bg)",
-          borderLeft: "1px solid var(--line)",
+          borderLeft: isMobile ? "none" : "1px solid var(--line)",
+          borderTop: isMobile ? "1px solid var(--line)" : "none",
           display: "flex", flexDirection: "column",
-          overflowY: "auto",
+          overflowY: isMobile ? "visible" : "auto",
         }}>
           <PassageSelector />
           <FlaggedPassages />

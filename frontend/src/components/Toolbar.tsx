@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useStore } from "../store/useStore";
 import { parseScore } from "../utils/musicxml";
 import { getLibrary, loadFromLibrary, updateMeta, setActiveFilename, scoreTitle } from "../utils/scoreLibrary";
+import { useIsMobile } from "../hooks/useMediaQuery";
 
 function openFilePicker() {
   (document.getElementById("file-input-trigger") as HTMLInputElement | null)?.click();
@@ -22,6 +23,7 @@ const FileIcon = () => (
 
 export default function Toolbar() {
   const { parsedScore, scoreId, voicePartId, accompanimentPartId, setVoicePartId, setAccompanimentPartId } = useStore();
+  const isMobile = useIsMobile();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [library, setLibrary] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -74,9 +76,15 @@ export default function Toolbar() {
 
   return (
     <div style={{
-      height: 56, flexShrink: 0,
+      height: isMobile ? "auto" : 56,
+      minHeight: 56,
+      flexShrink: 0,
       display: "flex", alignItems: "center",
-      paddingInline: 18, gap: 0,
+      flexWrap: isMobile ? "wrap" : "nowrap",
+      rowGap: isMobile ? 8 : 0,
+      paddingInline: 18,
+      paddingBlock: isMobile ? 10 : 0,
+      gap: 0,
       borderBottom: "1px solid var(--line)",
       background: "var(--bg)",
     }}>
@@ -192,7 +200,11 @@ export default function Toolbar() {
 
       {/* ── Right: part-assignment chips ── */}
       {parts.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
+          flexBasis: isMobile ? "100%" : "auto",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+        }}>
           <span style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--ink-4)", marginRight: 2 }}>Parts</span>
 
           <div style={{ position: "relative" }}>

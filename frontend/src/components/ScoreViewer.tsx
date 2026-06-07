@@ -73,7 +73,7 @@ export default function ScoreViewer() {
     const containerOffsetLeft = containerRef.current.offsetLeft;
     const containerOffsetTop = containerRef.current.offsetTop;
 
-    type RawData = { x: number; w: number; topY: number; bottomY: number; entries: StaffEntry[] };
+    type RawData = { x: number; w: number; sysTop: number; sysBottom: number; entries: StaffEntry[] };
     const rawData: (RawData | null)[] = measureList.map((staves) => {
       if (!staves?.length) return null;
       const first = staves[0];
@@ -81,10 +81,27 @@ export default function ScoreViewer() {
       if (!first?.PositionAndShape) return null;
       const x: number = first.PositionAndShape.AbsolutePosition.x;
       const w: number = first.PositionAndShape.Size.width;
-      const topY: number = first.PositionAndShape.AbsolutePosition.y;
-      const bottomY: number = last?.PositionAndShape
-        ? last.PositionAndShape.AbsolutePosition.y + last.PositionAndShape.Size.height
-        : topY + first.PositionAndShape.Size.height;
+
+      // Vertical extent comes from the parent MusicSystem's bounding box, NOT the
+      // per-measure staff heights. OSMD reports a degenerate ~1-unit height for a
+      // staff with sparse content (e.g. a measure-long rest), so a last-staff-based
+      // bottom clips the lowest staff whenever a system holds a single measure
+      // (which is what happens at narrow/mobile widths).
+      const system =
+        first.ParentMusicSystem ?? first.parentMusicSystem ?? first.ParentStaffLine?.ParentMusicSystem;
+      let sysTop: number;
+      let sysBottom: number;
+      if (system?.PositionAndShape) {
+        sysTop = system.PositionAndShape.AbsolutePosition.y;
+        sysBottom = sysTop + system.PositionAndShape.Size.height;
+      } else {
+        // Fallback: first staff top → last staff bottom.
+        sysTop = first.PositionAndShape.AbsolutePosition.y;
+        sysBottom = last?.PositionAndShape
+          ? last.PositionAndShape.AbsolutePosition.y + last.PositionAndShape.Size.height
+          : sysTop + first.PositionAndShape.Size.height;
+      }
+
       const entryMap = new Map<number, number>(); // timestamp(rounded) -> x
       for (const stave of staves) {
         const staffEntries: any[] = stave?.staffEntries ?? [];
@@ -101,28 +118,25 @@ export default function ScoreViewer() {
       const entries: StaffEntry[] = Array.from(entryMap.entries())
         .map(([ts, x]) => ({ timestamp: ts, x }))
         .sort((a, b) => a.timestamp - b.timestamp);
-      return { x, w, topY, bottomY, entries };
+      return { x, w, sysTop, sysBottom, entries };
     });
 
-    // Unify bottomY per system so all measures on the same row have the same height
-    const systemMaxBottom = new Map<number, number>();
-    for (const d of rawData) {
-      if (!d) continue;
-      const key = Math.round(d.topY * 100);
-      const prev = systemMaxBottom.get(key) ?? -Infinity;
-      if (d.bottomY > prev) systemMaxBottom.set(key, d.bottomY);
-    }
+    // Clamp each system's bottom to the next system's top so adjacent system
+    // highlights sit flush without overlapping (system bboxes overlap slightly).
+    const sysTops = Array.from(
+      new Set(rawData.filter((d): d is RawData => d !== null).map((d) => d.sysTop))
+    ).sort((a, b) => a - b);
 
     const rects: MeasureRect[] = rawData
       .map((d) => {
         if (!d) return null;
-        const key = Math.round(d.topY * 100);
-        const unifiedBottom = systemMaxBottom.get(key) ?? d.bottomY;
+        const nextTop = sysTops.find((t) => t > d.sysTop + 0.01);
+        const bottom = nextTop !== undefined ? Math.min(d.sysBottom, nextTop) : d.sysBottom;
         return {
           left: containerOffsetLeft + d.x * pxPerUnit,
-          top: containerOffsetTop + d.topY * pxPerUnit,
+          top: containerOffsetTop + d.sysTop * pxPerUnit,
           width: d.w * pxPerUnit,
-          height: (unifiedBottom - d.topY) * pxPerUnit,
+          height: (bottom - d.sysTop) * pxPerUnit,
           entries: d.entries,
         };
       })
